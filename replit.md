@@ -28,7 +28,7 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## Artifacts
 
-### WSCSS Algemon – Math Battle v3.0 (`artifacts/algemon-battle`)
+### WSCSS Algemon – Math Battle v4.0 (`artifacts/algemon-battle`)
 - Preview path: `/`
 - Pure React + Vite (no backend, no database)
 - Full game loop: Start → Hub → Battle → Result → Hub
