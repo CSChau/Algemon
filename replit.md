@@ -28,10 +28,21 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## Artifacts
 
-### WSCSS Algemon – Math Battle v2.0 (`artifacts/algemon-battle`)
+### WSCSS Algemon – Math Battle v3.0 (`artifacts/algemon-battle`)
 - Preview path: `/`
-- Plain React + Vite (no backend, no database)
-- Pokémon-style math battle with Type Weakness System
-- Game logic + all questions: `artifacts/algemon-battle/src/pages/Game.tsx`
-- Question bank: `ALGE_DB` object organized by topic (factorization, changeOfSubject, inequalities)
-- Features: type-weakness damage, CATCH phase (short answer), XP/level system, HINT button (Lv5+), Battle Log, Save Code generation
+- Pure React + Vite (no backend, no database)
+- Full game loop: Start → Hub → Battle → Result → Hub
+- Data layer: `src/data/gameData.ts` (ALGE_DB 8 topics, GYM_DATA 8 gyms, constants)
+- Main game: `src/pages/Game.tsx` (all screens + state)
+- Screens: start, hub, gymSelect, shop, changeAlgemon, battle, result
+- Features:
+  - 5-button Hub/Main Menu
+  - 8 Tai Po-themed Gyms with ordered progression (beat 1→unlock 2, etc.)
+  - Wild battles (easy questions, 30 AC reward) vs Gym battles (HKDSE-level, 100 AC + badge)
+  - Algecoin economy: WSCSS Tuck Shop sells Hint Tools (50 AC each)
+  - Party system (up to 6 caught Algemons), Change Algemon screen
+  - HINT button: free at Lv5+, or uses 1 Hint Tool from inventory
+  - XP/Level system (Level 1–10, 100 XP/level)
+  - CATCH phase (short-answer) when enemy HP < 30%
+  - Battle Log, Save Code (WSCSS-ALGE2-...) auto-generated
+  - 8 topics: factorization, changeOfSubject, inequalities, indices, simultaneous, polynomials, quadratic, functions
