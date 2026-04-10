@@ -28,21 +28,27 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## Artifacts
 
-### WSCSS Algemon – Math Battle v4.0 (`artifacts/algemon-battle`)
+### WSCSS Algemon – Math Battle v5.0 (`artifacts/algemon-battle`)
 - Preview path: `/`
 - Pure React + Vite (no backend, no database)
-- Full game loop: Start → Hub → Battle → Result → Hub
-- Data layer: `src/data/gameData.ts` (ALGE_DB 8 topics, GYM_DATA 8 gyms, constants)
+- Full game loop: Start → Hub → Battle → Result → (Evolution) → Hub
+- Data layer: `src/data/gameData.ts` (ALGE_DB 10 topics, GYM_DATA 8 gyms, EVOLUTION_DATA, SPECIES_LIST 24)
 - Main game: `src/pages/Game.tsx` (all screens + state)
-- Screens: start, hub, gymSelect, shop, changeAlgemon, battle, result
+- Screens: start, hub, gymSelect, shop, changeAlgemon, status, library, evolution, battle, result
 - Features:
-  - 5-button Hub/Main Menu
-  - 8 Tai Po-themed Gyms with ordered progression (beat 1→unlock 2, etc.)
-  - Wild battles (easy questions, 30 AC reward) vs Gym battles (HKDSE-level, 100 AC + badge)
-  - Algecoin economy: WSCSS Tuck Shop sells Hint Tools (50 AC each)
-  - Party system (up to 6 caught Algemons), Change Algemon screen
-  - HINT button: free at Lv5+, or uses 1 Hint Tool from inventory
-  - XP/Level system (Level 1–10, 100 XP/level)
-  - CATCH phase (short-answer) when enemy HP < 30%
-  - Battle Log, Save Code (WSCSS-ALGE2-...) auto-generated
-  - 8 topics: factorization, changeOfSubject, inequalities, indices, simultaneous, polynomials, quadratic, functions
+  - 8-type registry: Fire/Water/Grass/Ice/Flying/Ground/Fighting/Electric
+  - 24-species Algemon Dex: each type has 3 evolution stages (Stage 0→11→21)
+  - All 8 types have base-form starters (4×2 grid on start screen)
+  - Answer shuffling: every MC question randomises A/B/C/D via ShuffledQ
+  - Dynamic damage: BASE_DAMAGE=34; playerDmg = 34×(playerLv/foeLv); at equal levels 2 hits → 32% HP
+  - Defense bonus: Stage 1 = 10% damage reduction; Stage 2 = 20%
+  - Wild battles: foeLv = playerLv (always balanced); 50 XP/correct answer
+  - 8 Gyms with fixed foeLevels (4→6→8→10→12→14→17→20); 100 XP/correct
+  - Elite Four (unlock after 8 badges); foeLevels 22→24→26→28; 150 XP/correct
+  - XP level cap: 30; evolution triggers at Level 11 (Stage 1) and Level 21 (Stage 2)
+  - Evolution screen shown post-battle when level crosses threshold
+  - Party system up to 6; caught Algemon store baseType only (name/emoji from player level)
+  - Status screen: accuracy %, Dex collection 24/24, save code, bag contents
+  - Alge-Library: 10 study topics with formulas + HKDSE traps
+  - Economy: Tuck Shop sells Hints (50AC), Algaballs (50AC), Potions (30AC)
+  - 10 topics: factorization, changeOfSubject, inequalities, indices, simultaneous, polynomials, quadratic, functions, coordinates, ratios

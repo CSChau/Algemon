@@ -3,8 +3,9 @@ import {
   AlgemonType, TopicKey, MCQuestion, SAQuestion,
   ALGEMON_TYPES, TYPE_COLOR, TYPE_EMOJI, TYPE_TOPIC,
   WILD_ENEMY, GYM_DATA, ALGE_DB, ELITE_FOUR, STUDY_GUIDE, SPECIES_LIST,
-  PLAYER_MAX_HP, WILD_ENEMY_MAX_HP, GYM_ENEMY_MAX_HP, ELITE_ENEMY_MAX_HP,
-  WILD_CORRECT_DMG, GYM_CORRECT_DMG, ELITE_CORRECT_DMG, WRONG_DMG,
+  EVOLUTION_DATA, getEvolutionStage, getSpeciesId,
+  PLAYER_MAX_HP, ENEMY_MAX_HP, BASE_DAMAGE,
+  calcPlayerDmg, calcFoeDmg,
   CATCH_HP_PCT, XP_PER_CORRECT_WILD, XP_PER_CORRECT_GYM, XP_PER_CORRECT_ELITE,
   XP_PER_LEVEL, HINT_MIN_LEVEL, HINT_TOOL_COST, ALGEBALL_COST, POTION_COST, POTION_HEAL,
   WILD_WIN_COINS, GYM_WIN_COINS, ELITE_WIN_COINS,
@@ -15,21 +16,28 @@ import {
 // INTERFACES
 // ══════════════════════════════════════════════════════════════
 interface PartyMember {
-  displayName: string; type: AlgemonType; emoji: string; color: string;
+  baseType: AlgemonType;  // permanent type — name/emoji computed from player level
+  color:    string;
+}
+
+interface ShuffledQ {
+  text:    string;
+  options: string[];   // randomised every new question
+  correct: number;     // new index of the correct answer after shuffle
 }
 
 interface PlayerStats {
-  name:           string;
-  activeIndex:    number;
-  party:          PartyMember[];
-  xp:             number;
-  algecoins:      number;
-  gymBeaten:      boolean[];      // length 8
-  eliteFourBeaten: boolean[];     // length 4
-  inventory:      { hints: number; algaballs: number; potions: number };
-  totalQuestions: number;
-  totalCorrect:   number;
-  caughtSpecies:  string[];       // array of speciesIds
+  name:             string;
+  activeIndex:      number;
+  party:            PartyMember[];
+  xp:               number;
+  algecoins:        number;
+  gymBeaten:        boolean[];
+  eliteFourBeaten:  boolean[];
+  inventory:        { hints: number; algaballs: number; potions: number };
+  totalQuestions:   number;
+  totalCorrect:     number;
+  caughtSpecies:    string[];
 }
 
 interface BattleCtx {
@@ -41,9 +49,8 @@ interface BattleCtx {
   enemyName:   string;
   enemyColor:  string;
   enemyEmoji:  string;
-  enemyMaxHp:  number;
-  correctDmg:  number;
-  xpReward:    number;
+  foeLv?:      number;   // undefined = use player level (wild battles)
+  xpReward:    number;   // per correct answer
   coinReward:  number;
   badgeReward: boolean;
   catchType:   AlgemonType;
@@ -56,8 +63,14 @@ interface BattleResult {
   speciesName?: string;
 }
 
+interface PendingEvolution {
+  toStage:   0 | 1 | 2;
+  newLevel:  number;
+  evolutions: { from: string; to: string; emoji: string; type: AlgemonType }[];
+}
+
 type Screen = "start" | "hub" | "gymSelect" | "shop" | "changeAlgemon"
-            | "status" | "library" | "battle" | "result";
+            | "status" | "library" | "evolution" | "battle" | "result";
 
 // ══════════════════════════════════════════════════════════════
 // PALETTE & STYLES
@@ -73,16 +86,28 @@ const btnBase: React.CSSProperties = {
   border: `3px solid ${P.border}`, borderRadius: 4,
   boxShadow: `3px 3px 0 ${P.border}`, transition: "transform .07s",
 };
-const btnDark:  React.CSSProperties = { ...btnBase, background: P.darkBg, color: "#fff" };
-const btnLight: React.CSSProperties = { ...btnBase, background: P.light,  color: P.border };
+const btnDark:     React.CSSProperties = { ...btnBase, background: P.darkBg, color: "#fff" };
+const btnLight:    React.CSSProperties = { ...btnBase, background: P.light,  color: P.border };
 const btnDisabled: React.CSSProperties = { ...btnBase, background: "#777", color: "#bbb", cursor: "not-allowed", boxShadow: "none" };
+
+// ── Helpers: evolution-aware member display ───────────────────
+function getStage(lv: number): 0 | 1 | 2 { return getEvolutionStage(lv); }
+function memberName(p: PartyMember, lv: number): string  { return EVOLUTION_DATA[p.baseType].stages[getStage(lv)].name; }
+function memberEmoji(p: PartyMember, lv: number): string { return EVOLUTION_DATA[p.baseType].stages[getStage(lv)].emoji; }
+function memberDefBonus(p: PartyMember, lv: number): number { return EVOLUTION_DATA[p.baseType].stages[getStage(lv)].defenseBonus; }
+
+function shuffleQuestion(q: MCQuestion): ShuffledQ {
+  const correctText = q.options[q.correct];
+  const shuffled    = [...q.options].sort(() => Math.random() - 0.5);
+  return { text: q.text, options: shuffled, correct: shuffled.indexOf(correctText) };
+}
 
 // ══════════════════════════════════════════════════════════════
 // SUB-COMPONENTS
 // ══════════════════════════════════════════════════════════════
 function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div style={{ background: P.panel, border: `4px solid ${P.border}`, borderRadius: 8, padding: 18, width: "100%", maxWidth: 500, boxShadow: `6px 6px 0 ${P.border}`, ...style }}>
+    <div style={{ background: P.panel, border: `4px solid ${P.border}`, borderRadius: 8, padding: 18, width: "100%", maxWidth: 510, boxShadow: `6px 6px 0 ${P.border}`, ...style }}>
       {children}
     </div>
   );
@@ -94,7 +119,7 @@ function HpBar({ hp, maxHp, label }: { hp: number; maxHp: number; label: string 
   return (
     <div style={{ marginBottom: 4 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: P.light, marginBottom: 2 }}>
-        <span>{label}</span><span>{Math.max(0, hp)}/{maxHp} HP</span>
+        <span>{label}</span><span>{Math.max(0, hp)}/{maxHp}</span>
       </div>
       <div style={{ width: "100%", height: 11, background: "#4a6141", borderRadius: 3, border: `2px solid ${P.border}`, overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: col, transition: "width .4s" }} />
@@ -105,14 +130,15 @@ function HpBar({ hp, maxHp, label }: { hp: number; maxHp: number; label: string 
 
 function XpBar({ xp }: { xp: number }) {
   const lv  = xpToLevel(xp);
-  const pct = lv >= 10 ? 100 : ((xp - (lv - 1) * XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
+  const pct = lv >= 30 ? 100 : ((xp - (lv - 1) * XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
+  const hintFree = lv >= HINT_MIN_LEVEL;
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: P.light, marginBottom: 1 }}>
         <span>LV {lv}  XP {xp}</span>
-        <span style={{ color: lv >= HINT_MIN_LEVEL ? P.gold : P.light }}>
-          {lv >= 10 ? "MAX" : `→${xpToNextLevel(xp)} XP`}
-          {lv >= HINT_MIN_LEVEL && " ★HINT FREE"}
+        <span style={{ color: hintFree ? P.gold : P.light }}>
+          {lv >= 30 ? "MAX" : `→${xpToNextLevel(xp)} XP`}
+          {hintFree && "  ★HINT FREE"}
         </span>
       </div>
       <div style={{ width: "100%", height: 7, background: "#4a6141", borderRadius: 2, border: `2px solid ${P.border}`, overflow: "hidden" }}>
@@ -153,19 +179,9 @@ function BattleLog({ entries }: { entries: string[] }) {
 
 function StatBadge({ label, value, color = P.gold }: { label: string; value: string | number; color?: string }) {
   return (
-    <span style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 3, padding: "1px 7px", fontSize: 11, color, ...mono, fontWeight: "bold", marginRight: 4 }}>
+    <span style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 3, padding: "1px 7px", fontSize: 11, color, ...mono, fontWeight: "bold", marginRight: 4, marginBottom: 3, display: "inline-block" }}>
       {label}: {value}
     </span>
-  );
-}
-
-function BadgeIcons({ gymBeaten }: { gymBeaten: boolean[] }) {
-  return (
-    <div style={{ display: "flex", gap: 3 }}>
-      {["🌿","💧","❄️","⚡","🔩","🌺","🔺","🌊"].map((b, i) => (
-        <span key={i} style={{ fontSize: 14, opacity: gymBeaten[i] ? 1 : 0.2, filter: gymBeaten[i] ? "none" : "grayscale(1)" }}>{b}</span>
-      ))}
-    </div>
   );
 }
 
@@ -174,75 +190,84 @@ function BadgeIcons({ gymBeaten }: { gymBeaten: boolean[] }) {
 // ══════════════════════════════════════════════════════════════
 export default function Game() {
 
-  const [stats,   setStats]   = useState<PlayerStats | null>(null);
-  const [screen,  setScreen]  = useState<Screen>("start");
+  const [stats,  setStats]  = useState<PlayerStats | null>(null);
+  const [screen, setScreen] = useState<Screen>("start");
 
   // Battle state
-  const [ctx,          setCtx]          = useState<BattleCtx | null>(null);
-  const [playerHp,     setPlayerHp]     = useState(PLAYER_MAX_HP);
-  const [enemyHp,      setEnemyHp]      = useState(100);
-  const [mcQ,          setMcQ]          = useState<MCQuestion | null>(null);
-  const [answered,     setAnswered]     = useState(false);
-  const [catchMode,    setCatchMode]    = useState(false);
-  const [catchQ,       setCatchQ]       = useState<SAQuestion | null>(null);
-  const [catchInput,   setCatchInput]   = useState("");
-  const [catchDone,    setCatchDone]    = useState(false);
-  const [showHint,     setShowHint]     = useState(false);
-  const [showBag,      setShowBag]      = useState(false);
-  const [log,          setLog]          = useState<string[]>([]);
-  const [lastResult,   setLastResult]   = useState<BattleResult | null>(null);
+  const [ctx,         setCtx]         = useState<BattleCtx | null>(null);
+  const [playerHp,    setPlayerHp]    = useState(PLAYER_MAX_HP);
+  const [enemyHp,     setEnemyHp]     = useState(ENEMY_MAX_HP);
+  const [shQ,         setShQ]         = useState<ShuffledQ | null>(null);
+  const [answered,    setAnswered]    = useState(false);
+  const [catchMode,   setCatchMode]   = useState(false);
+  const [catchQ,      setCatchQ]      = useState<SAQuestion | null>(null);
+  const [catchInput,  setCatchInput]  = useState("");
+  const [catchDone,   setCatchDone]   = useState(false);
+  const [showHint,    setShowHint]    = useState(false);
+  const [showBag,     setShowBag]     = useState(false);
+  const [log,         setLog]         = useState<string[]>([]);
+  const [battleCorrect, setBattleCorrect] = useState(0);
+  const [lastResult,  setLastResult]  = useState<BattleResult | null>(null);
+  const [pendingEvolution, setPendingEvolution] = useState<PendingEvolution | null>(null);
 
   // Start form
   const [startName, setStartName] = useState("");
   const [startType, setStartType] = useState<AlgemonType | null>(null);
+  // Library
+  const [libOpen, setLibOpen] = useState<number | null>(null);
 
   const addLog = (msg: string) => setLog(prev => [...prev.slice(-40), msg]);
 
-  const activeMember = (s: PlayerStats) => s.party[s.activeIndex];
+  const active = (s: PlayerStats) => s.party[s.activeIndex];
 
   function buildSaveCode(s: PlayerStats): string {
-    const lv  = xpToLevel(s.xp);
-    const bdg = s.gymBeaten.filter(Boolean).length;
-    const elite = s.eliteFourBeaten.filter(Boolean).length;
-    const typ = activeMember(s).type.toUpperCase();
-    return `WSCSS-ALGE2-${typ}-LV${lv}-${s.xp}XP-${bdg}GYM-${elite}E4-${s.algecoins}AC`;
+    const lv    = xpToLevel(s.xp);
+    const bdg   = s.gymBeaten.filter(Boolean).length;
+    const e4    = s.eliteFourBeaten.filter(Boolean).length;
+    const typ   = active(s).baseType.toUpperCase().slice(0, 4);
+    return `WSCSS-ALGE5-${typ}-LV${lv}-${s.xp}XP-${bdg}GYM-${e4}E4-${s.algecoins}AC`;
   }
 
-  function pickBattleQuestion(c: BattleCtx): MCQuestion {
+  function pickQuestion(c: BattleCtx): MCQuestion {
     if (c.mode === "elite") return pickRandom(ELITE_FOUR[c.eliteId!].questions);
     const pool = c.mode === "wild" ? ALGE_DB[c.topic].easy : ALGE_DB[c.topic].hard;
     return pickRandom(pool);
   }
 
   // ── Launch a battle ─────────────────────────────────────────
-  function launchBattle(battleCtx: BattleCtx, currentStats: PlayerStats) {
-    const topicLabel = battleCtx.mode === "elite"
-      ? `Mixed Topics — ${ELITE_FOUR[battleCtx.eliteId!].name}`
-      : ALGE_DB[battleCtx.topic].topicName;
-    setCtx(battleCtx);
+  function launchBattle(bc: BattleCtx, currentStats: PlayerStats) {
+    const lv = xpToLevel(currentStats.xp);
+    const act = active(currentStats);
+    const topicLabel = bc.mode === "elite"
+      ? `Mixed Topics — ${ELITE_FOUR[bc.eliteId!].name}`
+      : ALGE_DB[bc.topic].topicName;
+    const foeLv = bc.foeLv ?? lv;
+    setCtx(bc);
     setPlayerHp(PLAYER_MAX_HP);
-    setEnemyHp(battleCtx.enemyMaxHp);
-    setMcQ(pickBattleQuestion(battleCtx));
+    setEnemyHp(ENEMY_MAX_HP);
+    setShQ(shuffleQuestion(pickQuestion(bc)));
     setAnswered(false); setCatchMode(false); setCatchQ(null);
-    setCatchInput(""); setCatchDone(false); setShowHint(false); setShowBag(false);
+    setCatchInput(""); setCatchDone(false);
+    setShowHint(false); setShowBag(false);
+    setBattleCorrect(0);
     setLog([
-      `${battleCtx.enemyName} appeared!`,
+      `${bc.enemyName} (Lv ${foeLv}) appeared!`,
       `Topic: ${topicLabel}`,
-      `${currentStats.name}'s ${activeMember(currentStats).displayName} steps forward!`,
+      `${currentStats.name}'s ${memberName(act, lv)} (Lv ${lv}) steps forward!`,
     ]);
     setScreen("battle");
   }
 
   function startWildBattle() {
     if (!stats) return;
-    const active = activeMember(stats);
-    const topic  = TYPE_TOPIC[active.type];
-    const enemy  = WILD_ENEMY[active.type];
+    const act   = active(stats);
+    const topic = TYPE_TOPIC[act.baseType];
+    const enemy = WILD_ENEMY[act.baseType];
     launchBattle({
       mode: "wild", topic, speciesId: enemy.speciesId,
       enemyName: enemy.name, enemyColor: enemy.color, enemyEmoji: enemy.emoji,
-      enemyMaxHp: WILD_ENEMY_MAX_HP, correctDmg: WILD_CORRECT_DMG,
       xpReward: XP_PER_CORRECT_WILD, coinReward: WILD_WIN_COINS, badgeReward: false, catchType: enemy.catchType,
+      // foeLv undefined → uses player level dynamically
     }, stats);
   }
 
@@ -252,8 +277,8 @@ export default function Game() {
     launchBattle({
       mode: "gym", gymId, topic: gym.topic, speciesId: gym.speciesId,
       enemyName: gym.enemyName, enemyColor: gym.enemyColor, enemyEmoji: gym.enemyEmoji,
-      enemyMaxHp: GYM_ENEMY_MAX_HP, correctDmg: GYM_CORRECT_DMG,
-      xpReward: XP_PER_CORRECT_GYM, coinReward: GYM_WIN_COINS, badgeReward: true, catchType: gym.catchType,
+      foeLv: gym.foeLevel, xpReward: XP_PER_CORRECT_GYM,
+      coinReward: GYM_WIN_COINS, badgeReward: true, catchType: gym.catchType,
     }, stats);
   }
 
@@ -263,79 +288,116 @@ export default function Game() {
     launchBattle({
       mode: "elite", eliteId, topic: "factorization", speciesId: elite.speciesId,
       enemyName: elite.enemyName, enemyColor: elite.enemyColor, enemyEmoji: elite.enemyEmoji,
-      enemyMaxHp: ELITE_ENEMY_MAX_HP, correctDmg: ELITE_CORRECT_DMG,
-      xpReward: XP_PER_CORRECT_ELITE, coinReward: ELITE_WIN_COINS, badgeReward: false, catchType: elite.catchType,
+      foeLv: elite.foeLevel, xpReward: XP_PER_CORRECT_ELITE,
+      coinReward: ELITE_WIN_COINS, badgeReward: false, catchType: elite.catchType,
     }, stats);
   }
 
-  // ── Next question (called after answer resolves) ─────────────
+  // ── Next question ────────────────────────────────────────────
   function nextQuestion() {
     if (!ctx) return;
-    setMcQ(pickBattleQuestion(ctx));
+    setShQ(shuffleQuestion(pickQuestion(ctx)));
     setAnswered(false); setCatchMode(false); setCatchQ(null);
     setCatchInput(""); setCatchDone(false); setShowHint(false); setShowBag(false);
   }
 
   // ── Apply victory ────────────────────────────────────────────
-  function applyVictory(caught: boolean, speciesName: string | undefined, extraXp: number, st: PlayerStats, curEnemyHp: number) {
+  function applyVictory(caught: boolean, correctCount: number, st: PlayerStats, curEnemyHp: number) {
     if (!ctx) return;
-    const xpGain    = caught ? ctx.xpReward * 2 : ctx.xpReward;
-    const newXp     = st.xp + xpGain + extraXp;
-    const prevLv    = xpToLevel(st.xp);
-    const newLv     = xpToLevel(newXp);
-    const newCoins  = st.algecoins + (caught ? 0 : ctx.coinReward);
-    const newBeaten = [...st.gymBeaten];
-    const newElite  = [...st.eliteFourBeaten];
-    if (!caught && ctx.badgeReward && ctx.gymId !== undefined) newBeaten[ctx.gymId] = true;
+    const xpGain   = caught ? correctCount * ctx.xpReward * 2 : correctCount * ctx.xpReward;
+    const newXp    = st.xp + xpGain;
+    const prevLv   = xpToLevel(st.xp);
+    const newLv    = xpToLevel(newXp);
+    const newCoins = st.algecoins + (caught ? 0 : ctx.coinReward);
+    const newGym   = [...st.gymBeaten];
+    const newElite = [...st.eliteFourBeaten];
+    if (!caught && ctx.badgeReward && ctx.gymId !== undefined) newGym[ctx.gymId] = true;
     if (!caught && ctx.mode === "elite" && ctx.eliteId !== undefined) newElite[ctx.eliteId] = true;
-    // Add species to collection
-    const newSpecies = caught && ctx.speciesId && !st.caughtSpecies.includes(ctx.speciesId)
-      ? [...st.caughtSpecies, ctx.speciesId]
-      : st.caughtSpecies;
-    // Add to party if caught
+
+    // Species collection
+    let newSpecies = [...st.caughtSpecies];
+    if (caught && ctx.speciesId && !newSpecies.includes(ctx.speciesId)) newSpecies.push(ctx.speciesId);
+
+    // Party update on catch
     let newParty = [...st.party];
     if (caught && st.party.length < 6) {
-      newParty.push({ displayName: ctx.enemyName, type: ctx.catchType, emoji: ctx.enemyEmoji, color: ctx.enemyColor });
+      newParty.push({ baseType: ctx.catchType, color: TYPE_COLOR[ctx.catchType] });
     }
-    setStats(s => s ? { ...s, xp: newXp, algecoins: newCoins, gymBeaten: newBeaten, eliteFourBeaten: newElite, caughtSpecies: newSpecies, party: newParty } : s);
-    setLastResult({ won: true, caught, xpGained: xpGain + extraXp, coinsGained: caught ? 0 : ctx.coinReward, badgeEarned: ctx.badgeReward && !caught, gymId: ctx.gymId, eliteId: ctx.eliteId, newLv: newLv > prevLv ? newLv : undefined, speciesName });
+
+    // Evolution check
+    const oldStage = getStage(prevLv);
+    const newStage = getStage(newLv);
+    let evoInfo: PendingEvolution | null = null;
+    if (newStage > oldStage) {
+      // Add new-stage speciesIds for all (post-catch) party members
+      for (const m of newParty) {
+        for (let s = oldStage + 1; s <= newStage; s++) {
+          const sid = getSpeciesId(m.baseType, s as 0 | 1 | 2);
+          if (!newSpecies.includes(sid)) newSpecies.push(sid);
+        }
+      }
+      evoInfo = {
+        toStage: newStage as 0 | 1 | 2,
+        newLevel: newLv,
+        evolutions: newParty.map(m => ({
+          from:  EVOLUTION_DATA[m.baseType].stages[oldStage].name,
+          to:    EVOLUTION_DATA[m.baseType].stages[newStage].name,
+          emoji: EVOLUTION_DATA[m.baseType].stages[newStage].emoji,
+          type:  m.baseType,
+        })),
+      };
+    }
+
+    setStats(s => s ? { ...s, xp: newXp, algecoins: newCoins, gymBeaten: newGym, eliteFourBeaten: newElite, caughtSpecies: newSpecies, party: newParty } : s);
+    if (evoInfo) setPendingEvolution(evoInfo);
+
+    const spName = SPECIES_LIST.find(sp => sp.id === ctx.speciesId)?.name;
+    setLastResult({
+      won: true, caught, xpGained: xpGain, coinsGained: caught ? 0 : ctx.coinReward,
+      badgeEarned: ctx.badgeReward && !caught,
+      gymId: ctx.gymId, eliteId: ctx.eliteId,
+      newLv: newLv > prevLv ? newLv : undefined, speciesName: spName,
+    });
     setTimeout(() => setScreen("result"), 900);
   }
 
   // ── Handle MC answer ─────────────────────────────────────────
   function handleAnswer(idx: number) {
-    if (answered || !mcQ || !ctx || !stats) return;
+    if (answered || !shQ || !ctx || !stats) return;
     setAnswered(true);
-    const isCorrect = idx === mcQ.correct;
-    setStats(s => s ? {
-      ...s,
+    const isCorrect = idx === shQ.correct;
+    const playerLv  = xpToLevel(stats.xp);
+    const foeLv     = ctx.foeLv ?? playerLv;
+    const defBonus  = memberDefBonus(active(stats), playerLv);
+    const playerDmg = calcPlayerDmg(playerLv, foeLv);
+    const foeDmg    = calcFoeDmg(playerLv, foeLv, defBonus);
+
+    setStats(s => s ? { ...s,
       totalQuestions: s.totalQuestions + 1,
       totalCorrect:   s.totalCorrect + (isCorrect ? 1 : 0),
     } : s);
 
     if (isCorrect) {
-      const newEnemyHp = Math.max(0, enemyHp - ctx.correctDmg);
+      const newEnemyHp = Math.max(0, enemyHp - playerDmg);
+      const newCount   = battleCorrect + 1;
       setEnemyHp(newEnemyHp);
-      addLog(`Correct! ${ctx.enemyName} takes ${ctx.correctDmg} damage! (+${ctx.xpReward} XP)`);
+      setBattleCorrect(newCount);
+      addLog(`✓ Correct! ${ctx.enemyName} takes ${playerDmg} dmg! (${newEnemyHp}/${ENEMY_MAX_HP} HP)`);
       if (newEnemyHp <= 0) {
         addLog(`${ctx.enemyName} fainted!`);
-        applyVictory(false, undefined, 0, stats, newEnemyHp);
+        applyVictory(false, newCount, stats, newEnemyHp);
       } else {
-        if (newEnemyHp < ctx.enemyMaxHp * CATCH_HP_PCT) addLog(`${ctx.enemyName} is weakened! Try to CATCH it!`);
-        // Update xp in stats (partial — will be overwritten on victory)
-        setStats(s => s ? { ...s, xp: s.xp + ctx.xpReward } : s);
-        const prevLv = xpToLevel(stats.xp);
-        const newLv  = xpToLevel(stats.xp + ctx.xpReward);
-        if (newLv > prevLv) addLog(`★ LEVEL UP! Now Level ${newLv}!`);
-        setTimeout(nextQuestion, 1600);
+        if (newEnemyHp < ENEMY_MAX_HP * CATCH_HP_PCT) addLog(`${ctx.enemyName} is weakened! Try to CATCH it!`);
+        setTimeout(nextQuestion, 1500);
       }
     } else {
-      const newHp = Math.max(0, playerHp - WRONG_DMG);
+      const newHp = Math.max(0, playerHp - foeDmg);
       setPlayerHp(newHp);
-      addLog(`Wrong! ${stats.name} takes ${WRONG_DMG} damage!`);
-      if (ctx.mode !== "elite") addLog(`Tip: ${ALGE_DB[ctx.topic].hint.slice(0, 60)}…`);
+      addLog(`✗ Wrong! You take ${foeDmg} dmg! (${newHp}/${PLAYER_MAX_HP} HP)`);
+      const hint = ctx.mode !== "elite" ? `  Tip: ${ALGE_DB[ctx.topic].hint.slice(0, 55)}…` : "";
+      if (hint) addLog(hint);
       if (newHp <= 0) {
-        addLog(`${activeMember(stats).displayName} fainted!`);
+        addLog(`${memberName(active(stats), xpToLevel(stats.xp))} fainted!`);
         setLastResult({ won: false, caught: false, xpGained: 0, coinsGained: 0, badgeEarned: false });
         setTimeout(() => setScreen("result"), 900);
       } else {
@@ -358,30 +420,27 @@ export default function Game() {
     const correct = normalizeAns(catchInput) === normalizeAns(catchQ.answer);
     setStats(s => s ? { ...s, totalQuestions: s.totalQuestions + 1, totalCorrect: s.totalCorrect + (correct ? 1 : 0) } : s);
     if (correct) {
-      const sp = SPECIES_LIST.find(s => s.id === ctx.speciesId);
       addLog(`Gotcha! ${ctx.enemyName} was caught!`);
-      applyVictory(true, sp?.name, 0, stats, enemyHp);
+      applyVictory(true, battleCorrect, stats, enemyHp);
     } else {
-      addLog(`Catch failed! Correct: ${catchQ.answer}. ${ctx.enemyName} breaks free!`);
+      addLog(`Catch failed! Correct was: ${catchQ.answer}. ${ctx.enemyName} broke free!`);
       setTimeout(() => { setCatchMode(false); setCatchInput(""); setCatchDone(false); nextQuestion(); }, 2200);
     }
   }
 
-  // ── Algeball catch (from BAG, no turn consumed on fail) ──────
-  function useAlgeball() {
-    if (!stats || !ctx || enemyHp <= 0) return;
-    if (stats.inventory.algaballs < 1) return;
+  // ── Algaball (from BAG, no turn consumed on fail) ─────────────
+  function useAlgaball() {
+    if (!stats || !ctx || enemyHp <= 0 || stats.inventory.algaballs < 1) return;
     setStats(s => s ? { ...s, inventory: { ...s.inventory, algaballs: s.inventory.algaballs - 1 } } : s);
     setShowBag(false);
-    const ratio = enemyHp / ctx.enemyMaxHp;
-    const rate  = ratio > 0.6 ? 0.40 : ratio > 0.3 ? 0.65 : 0.85;
+    const ratio   = enemyHp / ENEMY_MAX_HP;
+    const rate    = ratio > 0.6 ? 0.40 : ratio > 0.3 ? 0.65 : 0.85;
     const success = Math.random() < rate;
     if (success) {
-      const sp = SPECIES_LIST.find(s => s.id === ctx.speciesId);
-      addLog(`Algeball succeeded! (${Math.round(rate * 100)}% chance) ${ctx.enemyName} caught!`);
-      applyVictory(true, sp?.name, 0, stats, enemyHp);
+      addLog(`Algaball succeeded! (${Math.round(rate * 100)}%) ${ctx.enemyName} caught!`);
+      applyVictory(true, battleCorrect, stats, enemyHp);
     } else {
-      addLog(`Algeball missed! (${Math.round(rate * 100)}% rate — bad luck!) ${ctx.enemyName} broke free.`);
+      addLog(`Algaball missed! (${Math.round(rate * 100)}% rate) ${ctx.enemyName} broke free.`);
     }
   }
 
@@ -392,10 +451,10 @@ export default function Game() {
     setPlayerHp(prev => Math.min(PLAYER_MAX_HP, prev + POTION_HEAL));
     setStats(s => s ? { ...s, inventory: { ...s.inventory, potions: s.inventory.potions - 1 } } : s);
     setShowBag(false);
-    addLog(`Used a Potion! +${healed} HP restored. (${stats.inventory.potions - 1} left)`);
+    addLog(`Used a Potion! +${healed} HP restored.`);
   }
 
-  // ── Hint ─────────────────────────────────────────────────────
+  // ── Hint ──────────────────────────────────────────────────────
   function handleHint() {
     if (!stats || !ctx) return;
     const lv = xpToLevel(stats.xp);
@@ -408,12 +467,9 @@ export default function Game() {
     }
   }
 
-  const canCatch    = (hp: number, maxHp: number) => hp > 0 && hp < maxHp * CATCH_HP_PCT;
-  const canUseHint  = (s: PlayerStats) => xpToLevel(s.xp) >= HINT_MIN_LEVEL || s.inventory.hints > 0;
+  const canCatch   = (hp: number) => hp > 0 && hp < ENEMY_MAX_HP * CATCH_HP_PCT;
+  const canUseHint = (s: PlayerStats) => xpToLevel(s.xp) >= HINT_MIN_LEVEL || s.inventory.hints > 0;
 
-  // ══════════════════════════════════════════════════════════════
-  // LAYOUT WRAPPER
-  // ══════════════════════════════════════════════════════════════
   const wrap: React.CSSProperties = {
     minHeight: "100vh", background: P.bg,
     display: "flex", alignItems: "flex-start", justifyContent: "center",
@@ -421,45 +477,52 @@ export default function Game() {
   };
 
   // ══════════════════════════════════════════════════════════════
-  // START SCREEN
+  // START SCREEN — 8-type selector grid
   // ══════════════════════════════════════════════════════════════
   if (screen === "start") {
     return (
       <div style={wrap}>
         <Card>
-          <h1 style={{ textAlign: "center", color: P.border, fontSize: 16, fontWeight: "bold", letterSpacing: 1, marginBottom: 2 }}>⚔️ ALGEMON MATH BATTLE</h1>
-          <div style={{ textAlign: "center", fontSize: 10, color: "#3a5a1a", marginBottom: 18 }}>WSCSS v4 — Economy & Elite Four</div>
+          <h1 style={{ textAlign: "center", color: P.border, fontSize: 15, fontWeight: "bold", letterSpacing: 1, marginBottom: 1 }}>⚔️ ALGEMON MATH BATTLE</h1>
+          <div style={{ textAlign: "center", fontSize: 10, color: "#3a5a1a", marginBottom: 14 }}>WSCSS v5 — HKDSE Compulsory Part A</div>
           <label style={{ display: "block", color: P.border, fontSize: 12, marginBottom: 3 }}>TRAINER NAME:</label>
-          <input type="text" maxLength={16} value={startName} onChange={e => setStartName(e.target.value)}
-            placeholder="Enter your name"
-            style={{ width: "100%", boxSizing: "border-box", ...mono, fontSize: 13, padding: "6px 10px", border: `3px solid ${P.border}`, borderRadius: 4, background: P.white, marginBottom: 16 }} />
-          <div style={{ color: P.border, fontSize: 12, marginBottom: 6 }}>CHOOSE YOUR STARTER:</div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            {ALGEMON_TYPES.map(t => (
-              <button key={t} onClick={() => setStartType(t)} style={{
-                ...btnBase, flex: 1, padding: "8px 4px", fontSize: 12, lineHeight: 1.7,
-                background: startType === t ? TYPE_COLOR[t] : P.light,
-                color: startType === t ? "#fff" : P.border,
-                outline: startType === t ? `3px solid ${P.border}` : "none", outlineOffset: 2,
-              }}>
-                {TYPE_EMOJI[t]}<br /><b>{t}</b>
-              </button>
-            ))}
+          <input type="text" maxLength={16} value={startName} onChange={e => setStartName(e.target.value)} placeholder="Enter your name"
+            style={{ width: "100%", boxSizing: "border-box", ...mono, fontSize: 13, padding: "6px 10px", border: `3px solid ${P.border}`, borderRadius: 4, background: P.white, marginBottom: 14 }} />
+          <div style={{ color: P.border, fontSize: 12, marginBottom: 6 }}>CHOOSE YOUR ALGEMON STARTER:</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
+            {ALGEMON_TYPES.map(t => {
+              const stage0 = EVOLUTION_DATA[t].stages[0];
+              return (
+                <button key={t} onClick={() => setStartType(t)} style={{
+                  ...btnBase, padding: "7px 4px", fontSize: 10, lineHeight: 1.7, textAlign: "center",
+                  background: startType === t ? TYPE_COLOR[t] : P.light,
+                  color: startType === t ? "#fff" : P.border,
+                  outline: startType === t ? `3px solid ${P.border}` : "none", outlineOffset: 2,
+                }}>
+                  <div style={{ fontSize: 16 }}>{stage0.emoji}</div>
+                  <div style={{ fontWeight: "bold" }}>{stage0.name}</div>
+                  <div style={{ fontSize: 9, fontWeight: "normal", opacity: 0.8 }}>{t}</div>
+                </button>
+              );
+            })}
           </div>
           {startType && (
-            <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "5px 10px", marginBottom: 14, fontSize: 11, color: P.light }}>
-              <b>{startType}</b> Algemon specialises in <b>{ALGE_DB[TYPE_TOPIC[startType]].topicName}</b>.
+            <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "6px 10px", marginBottom: 12, fontSize: 11, color: P.light, lineHeight: 1.6 }}>
+              <b>{EVOLUTION_DATA[startType].stages[0].name}</b> specialises in <b>{ALGE_DB[TYPE_TOPIC[startType]].topicName}</b>.<br />
+              Evolves: Lv11 → {EVOLUTION_DATA[startType].stages[1].name} {EVOLUTION_DATA[startType].stages[1].emoji}  &nbsp;
+              Lv21 → {EVOLUTION_DATA[startType].stages[2].name} {EVOLUTION_DATA[startType].stages[2].emoji}
             </div>
           )}
           <button onClick={() => {
             if (!startName.trim() || !startType) return;
             setStats({
               name: startName.trim(), activeIndex: 0,
-              party: [{ displayName: `${startType} Starter`, type: startType, emoji: TYPE_EMOJI[startType], color: TYPE_COLOR[startType] }],
+              party: [{ baseType: startType, color: TYPE_COLOR[startType] }],
               xp: 0, algecoins: 0,
               gymBeaten: Array(8).fill(false), eliteFourBeaten: Array(4).fill(false),
               inventory: { hints: 0, algaballs: 0, potions: 0 },
-              totalQuestions: 0, totalCorrect: 0, caughtSpecies: [],
+              totalQuestions: 0, totalCorrect: 0,
+              caughtSpecies: [getSpeciesId(startType, 0)],
             });
             setScreen("hub");
           }} disabled={!startName.trim() || !startType}
@@ -473,30 +536,35 @@ export default function Game() {
 
   if (!stats) return null;
 
-  const lv        = xpToLevel(stats.xp);
-  const badges    = stats.gymBeaten.filter(Boolean).length;
-  const e4beats   = stats.eliteFourBeaten.filter(Boolean).length;
-  const active    = activeMember(stats);
-  const allGyms   = badges >= 8;
-  const isChamp   = allGyms && e4beats >= 4;
-  const accuracy  = stats.totalQuestions > 0 ? Math.round((stats.totalCorrect / stats.totalQuestions) * 100) : null;
+  const lv      = xpToLevel(stats.xp);
+  const act     = active(stats);
+  const badges  = stats.gymBeaten.filter(Boolean).length;
+  const e4beats = stats.eliteFourBeaten.filter(Boolean).length;
+  const allGyms = badges >= 8;
+  const isChamp = allGyms && e4beats >= 4;
+  const accuracy = stats.totalQuestions > 0 ? Math.round((stats.totalCorrect / stats.totalQuestions) * 100) : null;
+  const currentStage = getStage(lv);
+  const activeName   = memberName(act, lv);
+  const activeEmoji  = memberEmoji(act, lv);
+  const defBonus     = memberDefBonus(act, lv);
 
-  // ── Shared player info strip ───────────────────────────────
   function PlayerBar({ goHub }: { goHub?: boolean }) {
     return (
       <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "7px 10px", marginBottom: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-          <span style={{ color: P.light, fontSize: 12, fontWeight: "bold" }}>{stats!.name} — {active.emoji} {active.displayName}</span>
+          <span style={{ color: P.light, fontSize: 12, fontWeight: "bold" }}>{stats!.name} — {activeEmoji} {activeName}</span>
           {goHub && <button onClick={() => setScreen("hub")} style={{ ...btnLight, fontSize: 10, padding: "3px 8px" }}>← HUB</button>}
         </div>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 5 }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
           <StatBadge label="AC" value={stats!.algecoins} color={P.gold} />
-          <StatBadge label="Party" value={`${stats!.party.length}/6`} color={P.light} />
+          <StatBadge label="Stage" value={currentStage} color={defBonus > 0 ? "#90caf9" : P.light} />
           <StatBadge label="Badges" value={`${badges}/8`} color={P.gold} />
           {isChamp && <StatBadge label="🏆" value="CHAMPION" color="#ff8f00" />}
         </div>
-        <div style={{ display: "flex", gap: 4, marginBottom: 5 }}>
-          <BadgeIcons gymBeaten={stats!.gymBeaten} />
+        <div style={{ display: "flex", gap: 3, marginBottom: 4 }}>
+          {["🌿","💧","❄️","☀️","🌩️","🦋","🏋️","🗺️"].map((b, i) => (
+            <span key={i} style={{ fontSize: 13, opacity: stats!.gymBeaten[i] ? 1 : 0.2, filter: stats!.gymBeaten[i] ? "none" : "grayscale(1)" }}>{b}</span>
+          ))}
         </div>
         <XpBar xp={stats!.xp} />
       </div>
@@ -507,29 +575,28 @@ export default function Game() {
   // HUB — 6-button main menu
   // ══════════════════════════════════════════════════════════════
   if (screen === "hub") {
-    const nextGym = GYM_DATA.find((_, i) => !stats.gymBeaten[i]);
+    const nextGym   = GYM_DATA.find((_, i) => !stats.gymBeaten[i]);
     const nextElite = allGyms ? ELITE_FOUR.find((_, i) => !stats.eliteFourBeaten[i]) : null;
-
     const buttons = [
       {
-        icon: "🌿", label: "(1) Encounter Wild Algemon",
-        sub: `Practice — ${ALGE_DB[TYPE_TOPIC[active.type]].topicName} (easy)`,
+        icon: TYPE_EMOJI[act.baseType], label: "(1) Wild Algemon Encounter",
+        sub: `Practice — ${ALGE_DB[TYPE_TOPIC[act.baseType]].topicName} (balanced vs your level)`,
         action: () => { setLastResult(null); startWildBattle(); },
       },
       {
-        icon: "🏅", label: `(2) Challenge the GYM${allGyms ? " / ELITE FOUR" : ""}`,
-        sub: isChamp ? "🏆 CHAMPION — All battles cleared!" : nextElite ? `ELITE: ${nextElite.name} awaits!` : nextGym ? `Next: ${nextGym.gymName}` : "All gyms beaten!",
+        icon: "🏅", label: `(2) Challenge Gym${allGyms ? " / Elite Four" : ""}`,
+        sub: isChamp ? "🏆 CHAMPION — All cleared!" : nextElite ? `ELITE: ${nextElite.name} awaits!` : nextGym ? `Next: ${nextGym.gymName} (Foe Lv ${nextGym.foeLevel})` : "All gyms beaten!",
         action: () => { setLastResult(null); setScreen("gymSelect"); },
       },
       {
         icon: "🔄", label: "(3) Change Algemon",
-        sub: `Party: ${stats.party.map(p => p.emoji).join(" ")} (${stats.party.length} members)`,
+        sub: `Party: ${stats.party.map(p => memberEmoji(p, lv)).join(" ")} (${stats.party.length}/6 members)`,
         action: () => { setLastResult(null); setScreen("changeAlgemon"); },
         disabled: stats.party.length < 2,
       },
       {
         icon: "🛒", label: "(4) WSCSS Tuck Shop",
-        sub: `Hint 50AC · Algeball 50AC · Potion 30AC  |  Balance: ${stats.algecoins} AC`,
+        sub: `Hint 50AC · Algaball 50AC · Potion 30AC  |  Balance: ${stats.algecoins} AC`,
         action: () => { setLastResult(null); setScreen("shop"); },
       },
       {
@@ -539,11 +606,10 @@ export default function Game() {
       },
       {
         icon: "📚", label: "(6) Alge-Library",
-        sub: "Study guide — key formulas for all 8 topics",
+        sub: "Cheat sheet — key formulas and traps for all 10 topics",
         action: () => { setLastResult(null); setScreen("library"); },
       },
     ];
-
     return (
       <div style={wrap}>
         <Card>
@@ -552,10 +618,10 @@ export default function Game() {
           {lastResult && (
             <div style={{ background: lastResult.won ? "#c8e6c9" : "#ffcdd2", border: `2px solid ${lastResult.won ? P.green : P.red}`, borderRadius: 4, padding: "7px 10px", marginBottom: 10, fontSize: 11 }}>
               {lastResult.caught
-                ? `Gotcha! ${lastResult.speciesName ?? "Algemon"} joined your party! +${lastResult.xpGained} XP`
+                ? `Gotcha! ${lastResult.speciesName ?? "Algemon"} caught! +${lastResult.xpGained} XP`
                 : lastResult.won
-                ? `Victory! +${lastResult.coinsGained} AC  +${lastResult.xpGained} XP${lastResult.badgeEarned ? `  +1 Badge!` : ""}${lastResult.newLv ? `  ★ LV ${lastResult.newLv}!` : ""}`
-                : "You fainted! No coins lost — try again."}
+                ? `Victory! +${lastResult.coinsGained} AC  +${lastResult.xpGained} XP${lastResult.badgeEarned ? "  +Badge!" : ""}${lastResult.newLv ? `  ★ LV ${lastResult.newLv}!` : ""}`
+                : "You fainted! No coins lost — review your study notes and try again."}
             </div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -573,37 +639,34 @@ export default function Game() {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // GYM SELECT (+ Elite Four section)
+  // GYM SELECT + ELITE FOUR
   // ══════════════════════════════════════════════════════════════
   if (screen === "gymSelect") {
-    const firstUnbeaten = stats.gymBeaten.findIndex(b => !b);
+    const firstUnbeaten      = stats.gymBeaten.findIndex(b => !b);
     const firstUnbeatenElite = stats.eliteFourBeaten.findIndex(b => !b);
     return (
       <div style={wrap}>
         <Card>
           <h2 style={{ color: P.border, fontSize: 14, fontWeight: "bold", marginBottom: 8 }}>🏅 GYM SELECTION</h2>
           <PlayerBar goHub />
-          <div style={{ fontSize: 10, color: P.border, marginBottom: 8 }}>Challenge gyms in order. Defeat each Leader to unlock the next.</div>
-
-          {/* 8 Gyms */}
+          <div style={{ fontSize: 10, color: P.border, marginBottom: 8 }}>Your Lv {lv} vs. each gym's Foe Level. Level up in wild battles for an advantage!</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
             {GYM_DATA.map((gym, i) => {
               const beaten   = stats.gymBeaten[i];
               const unlocked = i === 0 || stats.gymBeaten[i - 1];
+              const isNext   = i === firstUnbeaten;
               return (
                 <button key={i} onClick={() => { if (unlocked && !beaten) { setScreen("hub"); startGymBattle(i); } }}
-                  style={{ ...btnBase, textAlign: "left", padding: "8px 11px", fontSize: 11, lineHeight: 1.7, background: beaten ? "#4a6141" : unlocked && i === firstUnbeaten ? P.darkBg : "#555", color: beaten ? "#a0d878" : unlocked ? "#fff" : "#888", cursor: unlocked && !beaten ? "pointer" : "not-allowed", boxShadow: beaten || !unlocked ? "none" : `3px 3px 0 ${P.border}` }}>
+                  style={{ ...btnBase, textAlign: "left", padding: "8px 11px", fontSize: 11, lineHeight: 1.7, background: beaten ? "#4a6141" : unlocked && isNext ? P.darkBg : "#555", color: beaten ? "#a0d878" : unlocked ? "#fff" : "#888", cursor: unlocked && !beaten ? "pointer" : "not-allowed", boxShadow: beaten || !unlocked ? "none" : `3px 3px 0 ${P.border}` }}>
                   <div>{beaten ? "✅" : unlocked ? gym.enemyEmoji : "🔒"} <b>GYM {i + 1}:</b> {gym.locationName} — {gym.gymName}</div>
                   <div style={{ fontSize: 10, color: beaten ? "#a0d878" : unlocked ? "#c0e08a" : "#666" }}>
-                    {gym.leaderName} | {ALGE_DB[gym.topic].topicName} | {gym.reward} AC + {gym.badge}
-                    {beaten ? "  ✓ CLEARED" : i === firstUnbeaten ? "  ← CHALLENGE" : !unlocked ? "  🔒 LOCKED" : ""}
+                    {gym.leaderName} | {ALGE_DB[gym.topic].topicName} | Foe Lv {gym.foeLevel} | {gym.reward} AC + {gym.badge}
+                    {beaten ? "  ✓ CLEARED" : isNext ? "  ← CHALLENGE" : !unlocked ? "  🔒 LOCKED" : ""}
                   </div>
                 </button>
               );
             })}
           </div>
-
-          {/* Elite Four — appears after all 8 gyms */}
           {allGyms && (
             <>
               <div style={{ background: P.logBg, border: `2px solid ${P.gold}`, borderRadius: 4, padding: "6px 10px", marginBottom: 8, textAlign: "center", color: P.gold, fontSize: 11, fontWeight: "bold" }}>
@@ -613,13 +676,14 @@ export default function Game() {
                 {ELITE_FOUR.map((el, i) => {
                   const beaten   = stats.eliteFourBeaten[i];
                   const unlocked = i === 0 || stats.eliteFourBeaten[i - 1];
+                  const isNext   = i === firstUnbeatenElite;
                   return (
                     <button key={i} onClick={() => { if (unlocked && !beaten) { setScreen("hub"); startEliteBattle(i); } }}
-                      style={{ ...btnBase, textAlign: "left", padding: "8px 11px", fontSize: 11, lineHeight: 1.7, background: beaten ? "#3a2a5a" : unlocked && i === firstUnbeatenElite ? "#4a148c" : "#333", color: beaten ? "#ce93d8" : unlocked ? "#fff" : "#888", cursor: unlocked && !beaten ? "pointer" : "not-allowed", boxShadow: beaten || !unlocked ? "none" : `3px 3px 0 ${P.border}` }}>
+                      style={{ ...btnBase, textAlign: "left", padding: "8px 11px", fontSize: 11, lineHeight: 1.7, background: beaten ? "#3a2a5a" : unlocked && isNext ? "#4a148c" : "#333", color: beaten ? "#ce93d8" : unlocked ? "#fff" : "#888", cursor: unlocked && !beaten ? "pointer" : "not-allowed", boxShadow: beaten || !unlocked ? "none" : `3px 3px 0 ${P.border}` }}>
                       <div>{beaten ? "✅" : unlocked ? el.enemyEmoji : "🔒"} <b>ELITE {i + 1}:</b> {el.name} — {el.title}</div>
                       <div style={{ fontSize: 10, color: beaten ? "#ce93d8" : unlocked ? "#e1bee7" : "#555" }}>
-                        {el.enemyName} | Mixed Topics | {ELITE_WIN_COINS} AC
-                        {beaten ? "  ✓ DEFEATED" : i === firstUnbeatenElite ? "  ← CHALLENGE" : "  🔒 LOCKED"}
+                        {el.enemyName} | Foe Lv {el.foeLevel} | Mixed Topics | {ELITE_WIN_COINS} AC
+                        {beaten ? "  ✓ DEFEATED" : isNext ? "  ← CHALLENGE" : "  🔒 LOCKED"}
                       </div>
                     </button>
                   );
@@ -649,13 +713,18 @@ export default function Game() {
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             {stats.party.map((member, i) => {
               const isActive = i === stats.activeIndex;
+              const mName = memberName(member, lv);
+              const mEmoji = memberEmoji(member, lv);
+              const stg = getStage(lv);
+              const def = EVOLUTION_DATA[member.baseType].stages[stg].defenseBonus;
               return (
                 <button key={i} onClick={() => { if (!isActive) setStats(s => s ? { ...s, activeIndex: i } : s); }}
                   style={{ ...btnBase, textAlign: "left", padding: "9px 12px", fontSize: 12, lineHeight: 1.7, background: isActive ? member.color : P.darkBg, color: "#fff", cursor: isActive ? "default" : "pointer", outline: isActive ? `3px solid ${P.gold}` : "none", outlineOffset: 2 }}>
-                  <b>{member.emoji} {member.displayName}</b>
+                  <b>{mEmoji} {mName}</b>
                   {isActive && <span style={{ marginLeft: 8, fontSize: 10, color: P.gold }}>★ ACTIVE</span>}
                   <div style={{ fontSize: 10, color: isActive ? "#e0f0c0" : "#a0d878", fontWeight: "normal" }}>
-                    Type: {member.type} | Wild topic: {ALGE_DB[TYPE_TOPIC[member.type]].topicName}
+                    {member.baseType} | Stage {stg} | Wild topic: {ALGE_DB[TYPE_TOPIC[member.baseType]].topicName}
+                    {def > 0 && ` | Shield: ${Math.round(def * 100)}%`}
                   </div>
                 </button>
               );
@@ -677,9 +746,9 @@ export default function Game() {
   if (screen === "shop") {
     const inv = stats.inventory;
     const shopItems = [
-      { icon: "💡", name: "Hint Tool",  desc: "Reveals a topic hint in battle. Free at Level 5+; otherwise uses this item.", cost: HINT_TOOL_COST,  own: inv.hints,     key: "hints"     as const },
-      { icon: "⭕", name: "Algeball",  desc: "Throw at weakened foes! 40–85% catch rate (no turn wasted on fail).",         cost: ALGEBALL_COST, own: inv.algaballs, key: "algaballs" as const },
-      { icon: "🧪", name: "Potion",    desc: `Restores ${POTION_HEAL} HP instantly. Does NOT consume your turn!`,            cost: POTION_COST,   own: inv.potions,   key: "potions"   as const },
+      { icon: "💡", name: "Hint Tool",  desc: "Reveals a topic hint in battle. Free at Level 5+.", cost: HINT_TOOL_COST, own: inv.hints,     key: "hints"     as const },
+      { icon: "⭕", name: "Algaball",  desc: "40–85% catch rate based on enemy HP. No turn wasted on fail!",                cost: ALGEBALL_COST, own: inv.algaballs, key: "algaballs" as const },
+      { icon: "🧪", name: "Potion",    desc: `Restores ${POTION_HEAL} HP. Does NOT consume your turn.`,                     cost: POTION_COST,   own: inv.potions,   key: "potions"   as const },
     ];
     return (
       <div style={wrap}>
@@ -688,7 +757,7 @@ export default function Game() {
           <PlayerBar goHub />
           <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "7px 12px", marginBottom: 10 }}>
             <div style={{ color: P.gold, fontSize: 13, fontWeight: "bold" }}>💰 Balance: {stats.algecoins} AC</div>
-            <div style={{ color: P.light, fontSize: 10, marginTop: 2 }}>Wild win: {WILD_WIN_COINS} AC | Gym win: {GYM_WIN_COINS} AC | Elite win: {ELITE_WIN_COINS} AC</div>
+            <div style={{ color: P.light, fontSize: 10, marginTop: 2 }}>Wild: {WILD_WIN_COINS} AC | Gym: {GYM_WIN_COINS} AC | Elite: {ELITE_WIN_COINS} AC</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {shopItems.map(item => {
@@ -718,69 +787,59 @@ export default function Game() {
   // STATUS SCREEN
   // ══════════════════════════════════════════════════════════════
   if (screen === "status") {
-    const collectedSpecies = SPECIES_LIST.filter(sp => stats.caughtSpecies.includes(sp.id));
+    const collected = SPECIES_LIST.filter(sp => stats.caughtSpecies.includes(sp.id));
     return (
       <div style={wrap}>
         <Card>
           <h2 style={{ color: P.border, fontSize: 14, fontWeight: "bold", marginBottom: 10 }}>📊 TRAINER STATUS</h2>
           <PlayerBar goHub />
-
-          {/* Save Code */}
           <div style={{ background: P.logBg, border: `2px solid ${P.gold}`, borderRadius: 4, padding: "8px 12px", marginBottom: 10 }}>
             <div style={{ fontSize: 10, color: P.logText, marginBottom: 3, fontWeight: "bold" }}>SAVE CODE</div>
             <div style={{ color: P.gold, fontSize: 11, fontWeight: "bold", wordBreak: "break-all", marginBottom: 6 }}>{buildSaveCode(stats)}</div>
             <button onClick={() => navigator.clipboard?.writeText(buildSaveCode(stats))} style={{ ...btnLight, fontSize: 10, padding: "4px 10px" }}>📋 COPY</button>
           </div>
-
-          {/* Stats grid */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
             {[
-              { label: "Level",          value: `LV ${lv}` },
+              { label: "Level",          value: `LV ${lv} (Stage ${currentStage})` },
               { label: "Total XP",       value: stats.xp },
               { label: "Accuracy Rate",  value: accuracy !== null ? `${accuracy}%` : "N/A" },
               { label: "Questions",      value: `${stats.totalCorrect}/${stats.totalQuestions}` },
               { label: "Algecoins",      value: `${stats.algecoins} AC` },
               { label: "Gym Badges",     value: `${badges}/8` },
               { label: "Elite Defeated", value: `${e4beats}/4` },
-              { label: "Party Size",     value: `${stats.party.length}/6` },
+              { label: "Shield Bonus",   value: `${Math.round(defBonus * 100)}%` },
             ].map(({ label, value }) => (
               <div key={label} style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "6px 10px" }}>
                 <div style={{ fontSize: 9, color: "#a0d878" }}>{label}</div>
-                <div style={{ fontSize: 14, color: P.gold, fontWeight: "bold" }}>{value}</div>
+                <div style={{ fontSize: 13, color: P.gold, fontWeight: "bold" }}>{value}</div>
               </div>
             ))}
           </div>
-
-          {/* Collection */}
           <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "8px 12px", marginBottom: 8 }}>
-            <div style={{ color: P.light, fontSize: 11, fontWeight: "bold", marginBottom: 6 }}>
-              📖 ALGEMON COLLECTION — {collectedSpecies.length}/24
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            <div style={{ color: P.light, fontSize: 11, fontWeight: "bold", marginBottom: 6 }}>📖 ALGEMON DEX — {collected.length}/24</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
               {SPECIES_LIST.map(sp => {
                 const caught = stats.caughtSpecies.includes(sp.id);
                 return (
                   <span key={sp.id} title={caught ? `${sp.name} (${sp.topic})` : "???"}
-                    style={{ fontSize: 13, opacity: caught ? 1 : 0.2, filter: caught ? "none" : "grayscale(1)", cursor: "default" }}>
+                    style={{ fontSize: 14, opacity: caught ? 1 : 0.2, filter: caught ? "none" : "grayscale(1)", cursor: "default" }}>
                     {sp.emoji}
                   </span>
                 );
               })}
             </div>
-            {collectedSpecies.length > 0 && (
-              <div style={{ marginTop: 6, fontSize: 10, color: "#a0d878" }}>
-                {collectedSpecies.map(sp => sp.name).join("  ·  ")}
+            {collected.length > 0 && (
+              <div style={{ marginTop: 6, fontSize: 9, color: "#a0d878" }}>
+                {collected.map(sp => sp.name).join("  ·  ")}
               </div>
             )}
           </div>
-
-          {/* Inventory */}
           <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "8px 12px" }}>
             <div style={{ color: P.light, fontSize: 11, fontWeight: "bold", marginBottom: 4 }}>🎒 BAG</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <StatBadge label="💡 Hints"     value={stats.inventory.hints} />
+              <StatBadge label="💡 Hints"    value={stats.inventory.hints} />
               <StatBadge label="⭕ Algaballs" value={stats.inventory.algaballs} />
-              <StatBadge label="🧪 Potions"   value={stats.inventory.potions} />
+              <StatBadge label="🧪 Potions"  value={stats.inventory.potions} />
             </div>
           </div>
         </Card>
@@ -792,7 +851,6 @@ export default function Game() {
   // ALGE-LIBRARY
   // ══════════════════════════════════════════════════════════════
   if (screen === "library") {
-    const [openIdx, setOpenIdx] = useState<number | null>(null);
     return (
       <div style={wrap}>
         <Card>
@@ -800,32 +858,73 @@ export default function Game() {
             <h2 style={{ color: P.border, fontSize: 14, fontWeight: "bold" }}>📚 ALGE-LIBRARY</h2>
             <button onClick={() => setScreen("hub")} style={{ ...btnLight, fontSize: 11, padding: "4px 10px" }}>← HUB</button>
           </div>
-          <div style={{ fontSize: 10, color: P.border, marginBottom: 10 }}>Tap a topic to expand the cheat sheet. Memorise the traps!</div>
+          <div style={{ fontSize: 10, color: P.border, marginBottom: 10 }}>Tap a topic to expand. Learn the formulas — memorise the TRAPS!</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {STUDY_GUIDE.map((sec, i) => {
-              const open = openIdx === i;
+              const open = libOpen === i;
               return (
                 <div key={i} style={{ border: `2px solid ${P.border}`, borderRadius: 5, overflow: "hidden" }}>
-                  <button onClick={() => setOpenIdx(open ? null : i)}
+                  <button onClick={() => setLibOpen(open ? null : i)}
                     style={{ ...btnBase, width: "100%", textAlign: "left", padding: "9px 12px", borderRadius: 0, border: "none", boxShadow: "none", background: open ? P.darkBg : P.light, color: open ? "#fff" : P.border, fontSize: 12 }}>
                     {sec.emoji} <b>{sec.topicName}</b> {open ? "▲" : "▼"}
                   </button>
                   {open && (
                     <div style={{ background: P.logBg, padding: "10px 14px" }}>
                       <div style={{ color: P.gold, fontSize: 10, fontWeight: "bold", marginBottom: 4 }}>KEY FORMULAS</div>
-                      {sec.formulas.map((f, j) => (
-                        <div key={j} style={{ color: P.logText, fontSize: 10, marginBottom: 4, lineHeight: 1.5 }}>• {f}</div>
-                      ))}
+                      {sec.formulas.map((f, j) => <div key={j} style={{ color: P.logText, fontSize: 10, marginBottom: 4, lineHeight: 1.5 }}>• {f}</div>)}
                       <div style={{ color: "#ff8a65", fontSize: 10, fontWeight: "bold", marginTop: 8, marginBottom: 4 }}>⚠️ COMMON TRAPS</div>
-                      {sec.traps.map((t, j) => (
-                        <div key={j} style={{ color: "#ffccbc", fontSize: 10, marginBottom: 4, lineHeight: 1.5 }}>⚡ {t}</div>
-                      ))}
+                      {sec.traps.map((t, j) => <div key={j} style={{ color: "#ffccbc", fontSize: 10, marginBottom: 4, lineHeight: 1.5 }}>⚡ {t}</div>)}
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // EVOLUTION SCREEN
+  // ══════════════════════════════════════════════════════════════
+  if (screen === "evolution" && pendingEvolution) {
+    const { toStage, newLevel, evolutions } = pendingEvolution;
+    const stageNames = ["Base Form", "Stage 2", "Final Form"];
+    return (
+      <div style={wrap}>
+        <Card>
+          <div style={{ textAlign: "center", marginBottom: 14 }}>
+            <div style={{ fontSize: 28, marginBottom: 4 }}>✨ EVOLUTION! ✨</div>
+            <div style={{ color: P.border, fontSize: 13, fontWeight: "bold" }}>Reached Level {newLevel}!</div>
+            <div style={{ color: "#546e7a", fontSize: 11, marginTop: 2 }}>All Algemon evolved to {stageNames[toStage]}!</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {evolutions.map((evo, i) => (
+              <div key={i} style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 6, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{ fontSize: 10, color: "#90a4ae", marginBottom: 2 }}>WAS</div>
+                  <div style={{ fontSize: 22 }}>{TYPE_EMOJI[evo.type]}</div>
+                  <div style={{ color: P.light, fontSize: 11, fontWeight: "bold" }}>{evo.from}</div>
+                </div>
+                <div style={{ fontSize: 20, color: P.gold }}>→</div>
+                <div style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{ fontSize: 10, color: P.gold, marginBottom: 2 }}>EVOLVED INTO</div>
+                  <div style={{ fontSize: 26 }}>{evo.emoji}</div>
+                  <div style={{ color: P.gold, fontSize: 12, fontWeight: "bold" }}>{evo.to}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {toStage > 0 && (
+            <div style={{ background: P.logBg, border: `2px solid ${P.gold}`, borderRadius: 4, padding: "8px 12px", marginBottom: 12, fontSize: 11, color: P.logText }}>
+              🛡️ <b>Defense Bonus Active!</b> Stage {toStage} Algemon now absorb{" "}
+              <b style={{ color: P.gold }}>{Math.round(EVOLUTION_DATA[evolutions[0].type].stages[toStage].defenseBonus * 100)}%</b> of incoming damage from wrong answers.
+            </div>
+          )}
+          <button onClick={() => { setPendingEvolution(null); setScreen("hub"); }} style={{ ...btnDark, width: "100%", padding: "11px 0", fontSize: 13 }}>
+            ✨ CONTINUE TO HUB
+          </button>
         </Card>
       </div>
     );
@@ -844,11 +943,11 @@ export default function Game() {
             {r?.caught ? "🎉 CAUGHT!" : won ? "🏆 VICTORY!" : "😵 FAINTED!"}
           </h2>
           <p style={{ textAlign: "center", color: P.border, fontSize: 12, marginBottom: 12 }}>
-            {r?.caught ? `${r.speciesName ?? ctx.enemyName} joined your party!` : won ? `${ctx.enemyName} was defeated! Great work, ${stats.name}!` : `Review ${ctx.mode !== "elite" ? ALGE_DB[ctx.topic].topicName : "the Elite topics"} and try again.`}
+            {r?.caught ? `${r.speciesName ?? ctx.enemyName} joined your party!` : won ? `${ctx.enemyName} was defeated! Well done, ${stats.name}!` : `Review ${ctx.mode !== "elite" ? ALGE_DB[ctx.topic].topicName : "the Elite topics"} and try again.`}
           </p>
           <div style={{ display: "flex", justifyContent: "space-around", alignItems: "flex-end", background: P.darkBg, border: `3px solid ${P.border}`, borderRadius: 6, padding: "10px 6px", marginBottom: 10 }}>
             <div style={{ textAlign: "center" }}>
-              <AlgemonSprite color={active.color} emoji={active.emoji} isEnemy={false} fainted={!won} />
+              <AlgemonSprite color={act.color} emoji={activeEmoji} isEnemy={false} fainted={!won} />
               <div style={{ fontSize: 9, color: P.light, marginTop: 3 }}>{stats.name}</div>
             </div>
             <div style={{ fontSize: 18, color: P.light, paddingBottom: 14 }}>VS</div>
@@ -859,12 +958,13 @@ export default function Game() {
           </div>
           {r && (
             <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "7px 10px", marginBottom: 10, fontSize: 11 }}>
-              {r.xpGained > 0   && <div style={{ color: P.light }}>+{r.xpGained} XP</div>}
+              {r.xpGained > 0    && <div style={{ color: P.light }}>+{r.xpGained} XP</div>}
               {r.coinsGained > 0 && <div style={{ color: P.gold }}>+{r.coinsGained} Algecoins</div>}
               {r.badgeEarned     && <div style={{ color: P.gold }}>+1 Badge earned!</div>}
-              {r.eliteId !== undefined && won && !r.caught && <div style={{ color: "#ce93d8" }}>Elite {r.eliteId + 1} defeated!</div>}
+              {r.eliteId !== undefined && won && !r.caught && <div style={{ color: "#ce93d8" }}>Elite {r.eliteId! + 1} defeated!</div>}
               {r.newLv           && <div style={{ color: "#90caf9" }}>★ Level Up! Now Level {r.newLv}!</div>}
-              {r.caught          && <div style={{ color: "#90caf9" }}>{r.speciesName} added to party! 🎉</div>}
+              {pendingEvolution  && <div style={{ color: P.gold }}>✨ Your Algemon are evolving…</div>}
+              {r.caught          && <div style={{ color: "#90caf9" }}>{r.speciesName} added to party!</div>}
               <div style={{ marginTop: 4 }}><XpBar xp={stats.xp} /></div>
             </div>
           )}
@@ -874,8 +974,9 @@ export default function Game() {
               <div style={{ color: P.gold, fontSize: 11, fontWeight: "bold", wordBreak: "break-all" }}>{buildSaveCode(stats)}</div>
             </div>
           )}
-          <button onClick={() => setScreen("hub")} style={{ ...btnDark, width: "100%", padding: "10px 0", fontSize: 13 }}>
-            📋 RETURN TO HUB
+          <button onClick={() => setScreen(pendingEvolution ? "evolution" : "hub")}
+            style={{ ...btnDark, width: "100%", padding: "10px 0", fontSize: 13 }}>
+            {pendingEvolution ? "✨ SEE EVOLUTION →" : "📋 RETURN TO HUB"}
           </button>
         </Card>
       </div>
@@ -886,13 +987,15 @@ export default function Game() {
   // BATTLE SCREEN
   // ══════════════════════════════════════════════════════════════
   if (screen === "battle" && ctx) {
-    const catchable = canCatch(enemyHp, ctx.enemyMaxHp);
-    const hintAvail = canUseHint(stats);
-    const isElite   = ctx.mode === "elite";
-    const topicHint = !isElite ? ALGE_DB[ctx.topic].hint : "Mixed topics — use all your knowledge!";
-    const modeLabel = isElite ? `ELITE ${ctx.eliteId! + 1}: ${ELITE_FOUR[ctx.eliteId!].name}` : ctx.mode === "gym" ? `GYM ${ctx.gymId! + 1}: ${GYM_DATA[ctx.gymId!].gymName}` : "WILD BATTLE";
-    const inv = stats.inventory;
+    const catchable  = canCatch(enemyHp);
+    const hintAvail  = canUseHint(stats);
+    const isElite    = ctx.mode === "elite";
+    const topicHint  = !isElite ? ALGE_DB[ctx.topic].hint : "Mixed HKDSE topics — apply everything you know!";
+    const modeLabel  = isElite ? `ELITE ${ctx.eliteId! + 1}: ${ELITE_FOUR[ctx.eliteId!].name}` : ctx.mode === "gym" ? `GYM ${ctx.gymId! + 1}: ${GYM_DATA[ctx.gymId!].gymName}` : "WILD BATTLE";
+    const foeLvShow  = ctx.foeLv ?? lv;
+    const inv        = stats.inventory;
     const hasBagItems = inv.algaballs > 0 || inv.potions > 0;
+    const allaballRate = enemyHp / ENEMY_MAX_HP > 0.6 ? 40 : enemyHp / ENEMY_MAX_HP > 0.3 ? 65 : 85;
 
     return (
       <div style={wrap}>
@@ -900,66 +1003,66 @@ export default function Game() {
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: P.border, fontWeight: "bold", marginBottom: 7 }}>
             <span>{isElite ? "🔮" : "⚔️"} {modeLabel}</span>
-            <span>LV{lv} | {stats.algecoins}AC | 💡{inv.hints} ⭕{inv.algaballs} 🧪{inv.potions}</span>
+            <span>LV{lv} S{currentStage} | {stats.algecoins}AC | 💡{inv.hints} ⭕{inv.algaballs} 🧪{inv.potions}</span>
           </div>
-
           {/* Field */}
           <div style={{ background: P.darkBg, border: `3px solid ${P.border}`, borderRadius: 6, padding: "9px 11px", marginBottom: 7 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 7 }}>
               <div style={{ flex: 1, paddingRight: 7 }}>
                 <div style={{ fontSize: 11, color: P.light, marginBottom: 3, fontWeight: "bold" }}>
-                  {ctx.enemyName}
-                  {catchable && enemyHp > 0 ? <span style={{ color: "#ff7043", marginLeft: 5 }}>★ CATCHABLE!</span> : ""}
+                  {ctx.enemyName} (Lv {foeLvShow})
+                  {catchable && enemyHp > 0 && <span style={{ color: "#ff7043", marginLeft: 5 }}>★ CATCHABLE!</span>}
                 </div>
-                <HpBar hp={enemyHp} maxHp={ctx.enemyMaxHp} label={ctx.enemyName} />
+                <HpBar hp={enemyHp} maxHp={ENEMY_MAX_HP} label="" />
               </div>
               <AlgemonSprite color={ctx.enemyColor} emoji={ctx.enemyEmoji} isEnemy fainted={enemyHp <= 0} />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <AlgemonSprite color={active.color} emoji={active.emoji} isEnemy={false} fainted={playerHp <= 0} />
+              <AlgemonSprite color={act.color} emoji={activeEmoji} isEnemy={false} fainted={playerHp <= 0} />
               <div style={{ flex: 1, paddingLeft: 7 }}>
-                <div style={{ fontSize: 10, color: P.light, marginBottom: 2, fontWeight: "bold" }}>{stats.name}'s {active.displayName}</div>
-                <HpBar hp={playerHp} maxHp={PLAYER_MAX_HP} label={stats.name} />
-                <XpBar xp={stats.xp} />
+                <div style={{ fontSize: 10, color: P.light, marginBottom: 2, fontWeight: "bold" }}>
+                  {stats.name}'s {activeName} (Lv {lv}{defBonus > 0 ? ` 🛡️${Math.round(defBonus * 100)}%` : ""})
+                </div>
+                <HpBar hp={playerHp} maxHp={PLAYER_MAX_HP} label="" />
+                <div style={{ fontSize: 9, color: "#90a4ae", marginTop: 2 }}>
+                  Your dmg: ~{calcPlayerDmg(lv, foeLvShow)} | Foe dmg: ~{calcFoeDmg(lv, foeLvShow, defBonus)}
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Hint box */}
+          {/* Hint */}
           {showHint && (
             <div style={{ background: "#fff9c4", border: `2px solid #f9a825`, color: "#5d4037", borderRadius: 4, padding: "7px 10px", fontSize: 11, marginBottom: 7, lineHeight: 1.5 }}>
               💡 {topicHint}
             </div>
           )}
-
           {/* BAG panel */}
           {showBag && (
             <div style={{ background: "#263238", border: `2px solid ${P.border}`, borderRadius: 5, padding: "8px 12px", marginBottom: 7 }}>
-              <div style={{ color: "#b0bec5", fontSize: 10, fontWeight: "bold", marginBottom: 6 }}>🎒 BAG — items used here DO NOT consume your turn</div>
+              <div style={{ color: "#b0bec5", fontSize: 10, fontWeight: "bold", marginBottom: 6 }}>🎒 BAG — items do NOT consume your turn</div>
               <div style={{ display: "flex", gap: 8 }}>
                 <div style={{ flex: 1, textAlign: "center" }}>
                   <div style={{ color: "#fff", fontSize: 11 }}>🧪 Potion ×{inv.potions}</div>
                   <div style={{ fontSize: 10, color: "#b0bec5", marginBottom: 4 }}>+{POTION_HEAL} HP</div>
                   <button onClick={usePotion} disabled={inv.potions < 1 || playerHp >= PLAYER_MAX_HP}
-                    style={{ ...(inv.potions < 1 || playerHp >= PLAYER_MAX_HP ? btnDisabled : { ...btnBase, background: "#00695c", color: "#fff" }), fontSize: 10, padding: "4px 8px" }}>
+                    style={{ ...(inv.potions < 1 || playerHp >= PLAYER_MAX_HP ? btnDisabled : { ...btnBase, background: "#00695c", color: "#fff" }), fontSize: 10, padding: "4px 10px" }}>
                     USE
                   </button>
                 </div>
                 <div style={{ flex: 1, textAlign: "center" }}>
                   <div style={{ color: "#fff", fontSize: 11 }}>⭕ Algaball ×{inv.algaballs}</div>
                   <div style={{ fontSize: 10, color: "#b0bec5", marginBottom: 4 }}>
-                    {enemyHp > 0 ? `~${Math.round((enemyHp / ctx.enemyMaxHp > 0.6 ? 40 : enemyHp / ctx.enemyMaxHp > 0.3 ? 65 : 85))}% catch` : "enemy fainted"}
+                    {enemyHp > 0 ? `~${allaballRate}% catch rate` : "enemy fainted"}
                   </div>
-                  <button onClick={useAlgeball} disabled={inv.algaballs < 1 || enemyHp <= 0}
-                    style={{ ...(inv.algaballs < 1 || enemyHp <= 0 ? btnDisabled : { ...btnBase, background: P.red, color: "#fff" }), fontSize: 10, padding: "4px 8px" }}>
+                  <button onClick={useAlgaball} disabled={inv.algaballs < 1 || enemyHp <= 0}
+                    style={{ ...(inv.algaballs < 1 || enemyHp <= 0 ? btnDisabled : { ...btnBase, background: P.red, color: "#fff" }), fontSize: 10, padding: "4px 10px" }}>
                     THROW
                   </button>
                 </div>
               </div>
             </div>
           )}
-
-          {/* CATCH MODE (short-answer) */}
+          {/* CATCH MODE */}
           {catchMode && catchQ ? (
             <>
               <div style={{ background: "#fce4ec", border: `3px solid ${P.red}`, borderRadius: 5, padding: "9px 11px", marginBottom: 7, fontSize: 12, color: "#4a0000", fontWeight: "bold", lineHeight: 1.6, whiteSpace: "pre-line" }}>
@@ -974,37 +1077,26 @@ export default function Game() {
                   style={{ ...(!catchInput.trim() || catchDone ? btnDisabled : { ...btnBase, background: P.red, color: "#fff" }), flex: 1, padding: "8px 0", fontSize: 12 }}>
                   ✔ SUBMIT CATCH
                 </button>
-                {hintAvail && (
-                  <button onClick={handleHint} style={{ ...btnLight, padding: "8px 11px", fontSize: 11, background: showHint ? P.gold : P.light }}>
-                    💡
-                  </button>
-                )}
-                {hasBagItems && (
-                  <button onClick={() => setShowBag(v => !v)} style={{ ...btnLight, padding: "8px 11px", fontSize: 11, background: showBag ? P.gold : P.light }}>
-                    🎒
-                  </button>
-                )}
+                {hintAvail && <button onClick={handleHint} style={{ ...btnLight, padding: "8px 11px", fontSize: 11, background: showHint ? P.gold : P.light }}>💡</button>}
+                {hasBagItems && <button onClick={() => setShowBag(v => !v)} style={{ ...btnLight, padding: "8px 11px", fontSize: 11, background: showBag ? P.gold : P.light }}>🎒</button>}
               </div>
             </>
           ) : (
             /* MC QUESTION */
-            mcQ && (
+            shQ && (
               <>
-                {!isElite && (
-                  <div style={{ fontSize: 9, color: "#5a7a2a", marginBottom: 2 }}>
-                    Topic: {ALGE_DB[ctx.topic].topicName}
-                  </div>
-                )}
+                {!isElite && <div style={{ fontSize: 9, color: "#5a7a2a", marginBottom: 2 }}>Topic: {ALGE_DB[ctx.topic].topicName}</div>}
                 <div style={{ background: P.white, border: `3px solid ${P.border}`, borderRadius: 5, padding: "8px 11px", marginBottom: 7, fontSize: 12, color: P.border, fontWeight: "bold", lineHeight: 1.6, whiteSpace: "pre-line" }}>
-                  {mcQ.text}
+                  {shQ.text}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 7 }}>
-                  {mcQ.options.map((opt, i) => {
-                    const label = ["A", "B", "C", "D"][i];
+                  {shQ.options.map((opt, i) => {
+                    const correct = answered && i === shQ.correct;
+                    const wrong   = answered && i !== shQ.correct;
                     return (
                       <button key={i} onClick={() => handleAnswer(i)} disabled={answered}
-                        style={{ ...btnBase, background: answered ? (i === mcQ.correct ? "#a5d6a7" : "#ffcdd2") : P.light, color: P.border, fontSize: 11, textAlign: "left", padding: "6px 8px", lineHeight: 1.4, cursor: answered ? "default" : "pointer", boxShadow: answered ? "none" : `3px 3px 0 ${P.border}` }}>
-                        <b>{label}.</b> {opt}
+                        style={{ ...btnBase, background: correct ? "#a5d6a7" : wrong ? "#ffcdd2" : P.light, color: P.border, fontSize: 11, textAlign: "left", padding: "6px 8px", lineHeight: 1.4, cursor: answered ? "default" : "pointer", boxShadow: answered ? "none" : `3px 3px 0 ${P.border}` }}>
+                        <b>{["A","B","C","D"][i]}.</b> {opt}
                       </button>
                     );
                   })}
@@ -1012,21 +1104,20 @@ export default function Game() {
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={handleCatch} disabled={!catchable || answered}
                     style={{ ...(!catchable || answered ? btnDisabled : { ...btnBase, background: "#e65100", color: "#fff" }), flex: 1, padding: "7px 0", fontSize: 10 }}>
-                    🎯 CATCH{!catchable ? " (HP≥30%)" : "!"}
+                    🎯 CATCH{!catchable ? " (need <30% HP)" : "!"}
                   </button>
                   {hintAvail && (
                     <button onClick={handleHint} style={{ ...btnLight, padding: "7px 10px", fontSize: 11, background: showHint ? P.gold : P.light }}>
-                      💡 HINT{lv < HINT_MIN_LEVEL && inv.hints > 0 ? ` (${inv.hints})` : ""}
+                      💡{lv < HINT_MIN_LEVEL && inv.hints > 0 ? ` (${inv.hints})` : ""}
                     </button>
                   )}
                   <button onClick={() => setShowBag(v => !v)} style={{ ...btnLight, padding: "7px 10px", fontSize: 11, background: showBag ? P.gold : P.light }}>
-                    🎒 BAG
+                    🎒
                   </button>
                 </div>
               </>
             )
           )}
-
           {/* Battle Log */}
           <div style={{ marginTop: 8 }}>
             <div style={{ fontSize: 10, color: P.border, fontWeight: "bold", marginBottom: 2 }}>▼ BATTLE LOG</div>
