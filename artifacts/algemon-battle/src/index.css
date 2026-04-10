@@ -21,3 +21,29 @@ input:focus {
   outline: 3px solid #1a2e1a;
   outline-offset: 1px;
 }
+
+/* ── Algemon Animations ─────────────────────────────────────── */
+
+@keyframes bob {
+  0%,  100% { transform: translateY(0px);  }
+  50%        { transform: translateY(-7px); }
+}
+@keyframes bob-enemy {
+  0%,  100% { transform: translateY(0px);  }
+  50%        { transform: translateY(-5px); }
+}
+@keyframes glow-pulse {
+  0%,  100% { filter: drop-shadow(0 0 4px currentColor); }
+  50%        { filter: drop-shadow(0 0 12px currentColor); }
+}
+@keyframes math-float {
+  0%,  100% { opacity: 0.7; transform: translateY(0px)  scale(1);   }
+  50%        { opacity: 1.0; transform: translateY(-5px) scale(1.15); }
+}
+
+.sprite-bob       { animation: bob       1.5s ease-in-out infinite; }
+.sprite-bob-enemy { animation: bob-enemy 2.0s ease-in-out infinite; }
+.sprite-glow      { animation: glow-pulse 2.0s ease-in-out infinite; }
+.math-f0          { animation: math-float 2.6s ease-in-out infinite; animation-delay: 0s;    }
+.math-f1          { animation: math-float 2.6s ease-in-out infinite; animation-delay: 0.87s; }
+.math-f2          { animation: math-float 2.6s ease-in-out infinite; animation-delay: 1.73s; }

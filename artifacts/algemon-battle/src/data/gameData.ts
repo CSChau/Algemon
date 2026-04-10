@@ -242,7 +242,11 @@ export const ALGE_DB: Record<TopicKey, TopicData> = {
   indices: {
     topicName: "Indices (Laws of Indices)",
     hint: "For fractional indices: x^(m/n) = (ⁿ√x)^m — find the root first, then raise to the power. To multiply: add powers. To divide: subtract powers.",
-    easy: [],
+    easy: [
+      { text: "Simplify: x² × x³",          options: ["x⁵", "x⁶", "2x⁵", "x^8"], correct: 0 },
+      { text: "What is 4^(1/2)?",             options: ["2", "8", "16", "1/2"], correct: 0 },
+      { text: "Simplify: (x³)²",             options: ["x⁶", "x⁵", "x^9", "2x³"], correct: 0 },
+    ],
     hard: [
       { text: "Simplify: (2x²y)³ ÷ (4xy²)", options: ["2x⁵y", "8x⁵y", "2x⁵y²", "4x⁵y"], correct: 0 },
       { text: "Evaluate: 27^(2/3)",            options: ["9", "3", "18", "6"], correct: 0 },
@@ -257,7 +261,11 @@ export const ALGE_DB: Record<TopicKey, TopicData> = {
   simultaneous: {
     topicName: "Simultaneous Equations",
     hint: "Substitution: isolate one variable, then substitute. Elimination: multiply equations to match a coefficient, then add or subtract to remove one variable.",
-    easy: [],
+    easy: [
+      { text: "Solve: x + y = 5 and x − y = 1.\nFind x.", options: ["3", "2", "4", "1"], correct: 0 },
+      { text: "Solve: 2x + y = 7 and y = 1.\nFind x.",    options: ["3", "4", "2", "6"], correct: 0 },
+      { text: "If x = 2 and 3x + y = 10, find y.",        options: ["4", "6", "8", "2"], correct: 0 },
+    ],
     hard: [
       { text: "Solve:\n2x + 3y = 12\nx − y = 1\nFind x.", options: ["x=3", "x=2", "x=4", "x=1"], correct: 0 },
       { text: "Solve:\n5x − y = 7\n2x + y = 0\nFind y.", options: ["y=−2", "y=2", "y=7", "y=−7"], correct: 0 },
@@ -272,7 +280,11 @@ export const ALGE_DB: Record<TopicKey, TopicData> = {
   polynomials: {
     topicName: "Polynomials",
     hint: "Remainder Theorem: f(a) = remainder when f(x) ÷ (x−a). Factor Theorem: (x−a) is a factor of f(x) if and only if f(a) = 0.",
-    easy: [],
+    easy: [
+      { text: "If f(x) = x² − 3x + 2, find f(2).",              options: ["0", "4", "−2", "2"], correct: 0 },
+      { text: "Which is a factor of x² − x − 6?",               options: ["(x−3)", "(x+2)", "(x−2)", "(x+3)"], correct: 0 },
+      { text: "Find f(1) where f(x) = x³ − x² + x − 1.",        options: ["0", "2", "−2", "1"], correct: 0 },
+    ],
     hard: [
       { text: "If f(x) = x³ − 3x + 2, find f(−1).",                                            options: ["4", "0", "−4", "2"], correct: 0 },
       { text: "When f(x) = x³ + ax² − x + 3 is divided by (x−1),\nremainder is 5. Find a.", options: ["a=2", "a=3", "a=−2", "a=1"], correct: 0 },
@@ -287,7 +299,11 @@ export const ALGE_DB: Record<TopicKey, TopicData> = {
   quadratic: {
     topicName: "Quadratic Equations",
     hint: "Discriminant Δ = b²−4ac. Δ>0: two distinct real roots. Δ=0: one repeated root. Δ<0: no real roots. Formula: x = (−b ± √Δ) / 2a.",
-    easy: [],
+    easy: [
+      { text: "Solve: x² − 5x + 6 = 0.",        options: ["x=2 or x=3", "x=1 or x=6", "x=−2 or x=−3", "x=2 or x=−3"], correct: 0 },
+      { text: "Solve: x(x − 4) = 0.",            options: ["x=0 or x=4", "x=4 only", "x=0 only", "x=±4"], correct: 0 },
+      { text: "Discriminant of x² − 4x + 4 = 0:", options: ["0", "8", "−8", "16"], correct: 0 },
+    ],
     hard: [
       { text: "Solve: 2x² − 7x + 3 = 0.\nOne root is x = ½. Find the other root.", options: ["x=3", "x=−3", "x=7", "x=1/3"], correct: 0 },
       { text: "Find the discriminant of 3x² − 4x + 2 = 0.",                         options: ["−8", "8", "40", "−40"], correct: 0 },
@@ -302,7 +318,11 @@ export const ALGE_DB: Record<TopicKey, TopicData> = {
   functions: {
     topicName: "Functions & Graphs",
     hint: "Inverse function f⁻¹: swap x and y, then solve for the new y. Composite fg(x): apply g first, then f to that result.",
-    easy: [],
+    easy: [
+      { text: "If f(x) = 2x + 1, find f(3).",                  options: ["7", "6", "8", "5"], correct: 0 },
+      { text: "If f(x) = x − 3, find f⁻¹(2).",                 options: ["5", "−1", "2", "−5"], correct: 0 },
+      { text: "If g(x) = x + 1, find g(g(3)).",                 options: ["5", "4", "6", "3"], correct: 0 },
+    ],
     hard: [
       { text: "If f(x) = 2x − 3, find f⁻¹(x).",                             options: ["(x+3)/2", "(x−3)/2", "2x+3", "1/(2x−3)"], correct: 0 },
       { text: "If f(x) = x² and g(x) = x + 2, find fg(3).\n[fg(3) = f(g(3))]", options: ["25", "11", "5", "17"], correct: 0 },

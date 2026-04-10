@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { AlgemonSVG } from "../components/AlgemonSVG";
 import {
   AlgemonType, TopicKey, MCQuestion, SAQuestion,
   ALGEMON_TYPES, TYPE_COLOR, TYPE_EMOJI, TYPE_TOPIC,
@@ -49,6 +50,8 @@ interface BattleCtx {
   enemyName:   string;
   enemyColor:  string;
   enemyEmoji:  string;
+  enemyType:   AlgemonType;
+  enemyStage:  0 | 1 | 2;
   foeLv?:      number;   // undefined = use player level (wild battles)
   xpReward:    number;   // per correct answer
   coinReward:  number;
@@ -148,24 +151,6 @@ function XpBar({ xp }: { xp: number }) {
   );
 }
 
-function AlgemonSprite({ color, emoji, isEnemy, fainted }: { color: string; emoji: string; isEnemy: boolean; fainted: boolean }) {
-  const sz = isEnemy ? 88 : 72;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", opacity: fainted ? 0.18 : 1, transition: "opacity .5s", transform: isEnemy ? "none" : "scaleX(-1)", flexShrink: 0 }}>
-      <div style={{ width: sz, height: sz, background: color, borderRadius: isEnemy ? "50% 50% 38% 38%" : "38% 38% 50% 50%", border: `3px solid ${P.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxShadow: fainted ? "none" : `0 0 14px ${color}88` }}>
-        <div style={{ display: "flex", gap: 9, marginBottom: 2 }}>
-          {[0, 1].map(i => (
-            <div key={i} style={{ width: 9, height: 9, background: "#fff", borderRadius: "50%", border: `2px solid ${P.border}` }}>
-              <div style={{ width: 4, height: 4, background: P.border, borderRadius: "50%", margin: "2px auto 0" }} />
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: 16 }}>{emoji}</div>
-      </div>
-      <div style={{ width: sz * 0.65, height: 6, background: "rgba(0,0,0,.3)", borderRadius: "50%", marginTop: -1 }} />
-    </div>
-  );
-}
 
 function BattleLog({ entries }: { entries: string[] }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -230,7 +215,9 @@ export default function Game() {
 
   function pickQuestion(c: BattleCtx): MCQuestion {
     if (c.mode === "elite") return pickRandom(ELITE_FOUR[c.eliteId!].questions);
-    const pool = c.mode === "wild" ? ALGE_DB[c.topic].easy : ALGE_DB[c.topic].hard;
+    const easy = ALGE_DB[c.topic].easy;
+    const hard = ALGE_DB[c.topic].hard;
+    const pool = c.mode === "wild" ? (easy.length > 0 ? easy : hard) : hard;
     return pickRandom(pool);
   }
 
@@ -266,6 +253,7 @@ export default function Game() {
     launchBattle({
       mode: "wild", topic, speciesId: enemy.speciesId,
       enemyName: enemy.name, enemyColor: enemy.color, enemyEmoji: enemy.emoji,
+      enemyType: enemy.catchType, enemyStage: 0,
       xpReward: XP_PER_CORRECT_WILD, coinReward: WILD_WIN_COINS, badgeReward: false, catchType: enemy.catchType,
       // foeLv undefined → uses player level dynamically
     }, stats);
@@ -277,6 +265,7 @@ export default function Game() {
     launchBattle({
       mode: "gym", gymId, topic: gym.topic, speciesId: gym.speciesId,
       enemyName: gym.enemyName, enemyColor: gym.enemyColor, enemyEmoji: gym.enemyEmoji,
+      enemyType: gym.catchType, enemyStage: 2,
       foeLv: gym.foeLevel, xpReward: XP_PER_CORRECT_GYM,
       coinReward: GYM_WIN_COINS, badgeReward: true, catchType: gym.catchType,
     }, stats);
@@ -288,6 +277,7 @@ export default function Game() {
     launchBattle({
       mode: "elite", eliteId, topic: "factorization", speciesId: elite.speciesId,
       enemyName: elite.enemyName, enemyColor: elite.enemyColor, enemyEmoji: elite.enemyEmoji,
+      enemyType: elite.catchType, enemyStage: 2,
       foeLv: elite.foeLevel, xpReward: XP_PER_CORRECT_ELITE,
       coinReward: ELITE_WIN_COINS, badgeReward: false, catchType: elite.catchType,
     }, stats);
@@ -592,7 +582,7 @@ export default function Game() {
         icon: "🔄", label: "(3) Change Algemon",
         sub: `Party: ${stats.party.map(p => memberEmoji(p, lv)).join(" ")} (${stats.party.length}/6 members)`,
         action: () => { setLastResult(null); setScreen("changeAlgemon"); },
-        disabled: stats.party.length < 2,
+        disabled: false,
       },
       {
         icon: "🛒", label: "(4) WSCSS Tuck Shop",
@@ -719,12 +709,15 @@ export default function Game() {
               const def = EVOLUTION_DATA[member.baseType].stages[stg].defenseBonus;
               return (
                 <button key={i} onClick={() => { if (!isActive) setStats(s => s ? { ...s, activeIndex: i } : s); }}
-                  style={{ ...btnBase, textAlign: "left", padding: "9px 12px", fontSize: 12, lineHeight: 1.7, background: isActive ? member.color : P.darkBg, color: "#fff", cursor: isActive ? "default" : "pointer", outline: isActive ? `3px solid ${P.gold}` : "none", outlineOffset: 2 }}>
-                  <b>{mEmoji} {mName}</b>
-                  {isActive && <span style={{ marginLeft: 8, fontSize: 10, color: P.gold }}>★ ACTIVE</span>}
-                  <div style={{ fontSize: 10, color: isActive ? "#e0f0c0" : "#a0d878", fontWeight: "normal" }}>
-                    {member.baseType} | Stage {stg} | Wild topic: {ALGE_DB[TYPE_TOPIC[member.baseType]].topicName}
-                    {def > 0 && ` | Shield: ${Math.round(def * 100)}%`}
+                  style={{ ...btnBase, display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", fontSize: 12, lineHeight: 1.7, background: isActive ? member.color + "cc" : P.darkBg, color: "#fff", cursor: isActive ? "default" : "pointer", outline: isActive ? `3px solid ${P.gold}` : "none", outlineOffset: 2 }}>
+                  <AlgemonSVG type={member.baseType} stage={stg} size={44} isEnemy={false} animate={false} />
+                  <div style={{ textAlign: "left" }}>
+                    <b>{mName}</b>
+                    {isActive && <span style={{ marginLeft: 8, fontSize: 10, color: P.gold }}>★ ACTIVE</span>}
+                    <div style={{ fontSize: 10, color: isActive ? "#e0f0c0" : "#a0d878", fontWeight: "normal" }}>
+                      {member.baseType} · Stage {stg} · {ALGE_DB[TYPE_TOPIC[member.baseType]].topicName}
+                      {def > 0 && ` · Shield ${Math.round(def * 100)}%`}
+                    </div>
                   </div>
                 </button>
               );
@@ -817,14 +810,14 @@ export default function Game() {
           </div>
           <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "8px 12px", marginBottom: 8 }}>
             <div style={{ color: P.light, fontSize: 11, fontWeight: "bold", marginBottom: 6 }}>📖 ALGEMON DEX — {collected.length}/24</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {SPECIES_LIST.map(sp => {
                 const caught = stats.caughtSpecies.includes(sp.id);
                 return (
-                  <span key={sp.id} title={caught ? `${sp.name} (${sp.topic})` : "???"}
-                    style={{ fontSize: 14, opacity: caught ? 1 : 0.2, filter: caught ? "none" : "grayscale(1)", cursor: "default" }}>
-                    {sp.emoji}
-                  </span>
+                  <div key={sp.id} title={caught ? `${sp.name} · ${sp.topic}` : "??? (not yet caught)"}
+                    style={{ opacity: caught ? 1 : 0.18, filter: caught ? "none" : "grayscale(1) brightness(0.4)", cursor: "default" }}>
+                    <AlgemonSVG type={sp.type} stage={sp.stage} size={34} animate={false} />
+                  </div>
                 );
               })}
             </div>
@@ -947,12 +940,12 @@ export default function Game() {
           </p>
           <div style={{ display: "flex", justifyContent: "space-around", alignItems: "flex-end", background: P.darkBg, border: `3px solid ${P.border}`, borderRadius: 6, padding: "10px 6px", marginBottom: 10 }}>
             <div style={{ textAlign: "center" }}>
-              <AlgemonSprite color={act.color} emoji={activeEmoji} isEnemy={false} fainted={!won} />
+              <AlgemonSVG type={act.baseType} stage={getStage(lv)} size={72} isEnemy={false} fainted={!won} animate={false} />
               <div style={{ fontSize: 9, color: P.light, marginTop: 3 }}>{stats.name}</div>
             </div>
             <div style={{ fontSize: 18, color: P.light, paddingBottom: 14 }}>VS</div>
             <div style={{ textAlign: "center" }}>
-              <AlgemonSprite color={ctx.enemyColor} emoji={ctx.enemyEmoji} isEnemy fainted={won && !r?.caught} />
+              <AlgemonSVG type={ctx.enemyType} stage={ctx.enemyStage} size={80} isEnemy fainted={won && !r?.caught} animate={false} />
               <div style={{ fontSize: 9, color: P.light, marginTop: 3 }}>{ctx.enemyName}</div>
             </div>
           </div>
@@ -1015,10 +1008,10 @@ export default function Game() {
                 </div>
                 <HpBar hp={enemyHp} maxHp={ENEMY_MAX_HP} label="" />
               </div>
-              <AlgemonSprite color={ctx.enemyColor} emoji={ctx.enemyEmoji} isEnemy fainted={enemyHp <= 0} />
+              <AlgemonSVG type={ctx.enemyType} stage={ctx.enemyStage} size={88} isEnemy fainted={enemyHp <= 0} animate />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <AlgemonSprite color={act.color} emoji={activeEmoji} isEnemy={false} fainted={playerHp <= 0} />
+              <AlgemonSVG type={act.baseType} stage={currentStage} size={76} isEnemy={false} fainted={playerHp <= 0} animate />
               <div style={{ flex: 1, paddingLeft: 7 }}>
                 <div style={{ fontSize: 10, color: P.light, marginBottom: 2, fontWeight: "bold" }}>
                   {stats.name}'s {activeName} (Lv {lv}{defBonus > 0 ? ` 🛡️${Math.round(defBonus * 100)}%` : ""})
@@ -1113,6 +1106,11 @@ export default function Game() {
                   )}
                   <button onClick={() => setShowBag(v => !v)} style={{ ...btnLight, padding: "7px 10px", fontSize: 11, background: showBag ? P.gold : P.light }}>
                     🎒
+                  </button>
+                  <button onClick={() => { setCtx(null); setScreen("hub"); }}
+                    style={{ ...btnLight, padding: "7px 10px", fontSize: 11, color: "#b71c1c" }}
+                    title={ctx.mode === "wild" ? "Run away from battle" : "Forfeit this challenge"}>
+                    ✈ {ctx.mode === "wild" ? "FLEE" : "QUIT"}
                   </button>
                 </div>
               </>
