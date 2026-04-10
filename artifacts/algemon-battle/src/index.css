@@ -1,0 +1,23 @@
+/* Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Courier New', Courier, monospace;
+  background: #8bac0f;
+  color: #1a2e1a;
+  min-height: 100vh;
+}
+
+button:active {
+  transform: translate(2px, 2px);
+  box-shadow: none !important;
+}
+
+input:focus {
+  outline: 3px solid #1a2e1a;
+  outline-offset: 1px;
+}

@@ -1,0 +1,33 @@
+I want to build a very small browser game prototype in a single HTML/CSS/JavaScript project.
+The working title is “WSCSS Algemon – Math Battle (Prototype)”.
+Goal: Create a minimal playable battle demo for a Pokémon-style HKDSE Maths game. Focus only on a single-topic training battle, not the full RPG.
+Tech stack:
+•	Plain HTML, CSS, and vanilla JavaScript only (no React, no backend, no database).
+•	One page with a simple layout that runs in any modern browser.
+Core features for this Phase 1 prototype:
+1.	Start screen
+•	Ask for Player Name (text input).
+•	Let the player choose ONE starter Algemon from three buttons: Fire, Water, Grass.
+•	A “Start Battle” button that moves into the battle screen once a starter is chosen.
+2.	Single battle screen (no map, no exploration)
+•	Show player info: name, chosen Algemon type, player HP bar (e.g. 100 HP).
+•	Show enemy Algemon with its HP bar.
+•	The enemy “attacks” by showing ONE multiple-choice HKDSE-style algebra question (Section A1) on a chosen topic (for this prototype, use only Factorization).
+•	Show four answer buttons A, B, C, D.
+•	If the player clicks the correct option, the enemy loses HP and a short success message appears.
+•	If the player clicks a wrong option, the player loses HP and a short hint appears.
+•	The battle ends when either HP bar reaches zero, and a clear “You win!” or “You fainted!” message is shown.
+•	After the battle ends, show a “Play Again” button that returns to the start screen and resets the state.
+3.	Visual style
+•	Use a simple, readable Game Boy Color–inspired palette (greenish background, simple boxes) but do NOT use any external images yet. Just use CSS boxes and text to represent the battle UI.
+•	Layout similar to classic Pokémon battle: enemy at top, player at bottom, question and answer buttons in the middle/bottom area.
+4.	Question logic
+•	For now, hard-code 3–5 sample multiple-choice factorization questions directly in JavaScript.
+•	Randomly choose one question per new battle from this small list.
+Constraints:
+•	Keep all code in as few files as possible (e.g. index.html with embedded CSS and JS is fine).
+•	No login, no database, no real save system in this phase.
+•	Code should be clear and commented so I can edit the questions later.
+Output:
+•	Set up the project, write the HTML/CSS/JS, and then explain briefly where in the code I can change the questions and answers.
+

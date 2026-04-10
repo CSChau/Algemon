@@ -25,3 +25,12 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## Artifacts
+
+### WSCSS Algemon – Math Battle (`artifacts/algemon-battle`)
+- Preview path: `/`
+- Plain React + Vite (no backend, no database)
+- Single-page Pokémon-style math battle game
+- Game logic and questions: `artifacts/algemon-battle/src/pages/Game.tsx`
+- All questions are hard-coded in the `QUESTIONS` array at the top of `Game.tsx`
