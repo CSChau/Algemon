@@ -28,9 +28,10 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## Artifacts
 
-### WSCSS Algemon – Math Battle (`artifacts/algemon-battle`)
+### WSCSS Algemon – Math Battle v2.0 (`artifacts/algemon-battle`)
 - Preview path: `/`
 - Plain React + Vite (no backend, no database)
-- Single-page Pokémon-style math battle game
-- Game logic and questions: `artifacts/algemon-battle/src/pages/Game.tsx`
-- All questions are hard-coded in the `QUESTIONS` array at the top of `Game.tsx`
+- Pokémon-style math battle with Type Weakness System
+- Game logic + all questions: `artifacts/algemon-battle/src/pages/Game.tsx`
+- Question bank: `ALGE_DB` object organized by topic (factorization, changeOfSubject, inequalities)
+- Features: type-weakness damage, CATCH phase (short answer), XP/level system, HINT button (Lv5+), Battle Log, Save Code generation
