@@ -127,6 +127,33 @@ export function normalizeAns(s: string): string {
 }
 
 // ══════════════════════════════════════════════════════════════
+// QUESTION_BANK — paste your HKDSE questions here.
+//
+// Each topic has two arrays:
+//   mc  — Multiple-Choice questions used in Wild & Gym battles.
+//         Format: { text, options: [A, B, C, D], correct: 0-3 }
+//         (correct is the index of the right answer in options[])
+//   sa  — Short-Answer questions triggered when an Algaball is
+//         thrown at low HP (< 30%). Answer must match exactly.
+//         Format: { text, answer: "exact string" }
+//
+// While mc[] is empty the engine falls back to the built-in ALGE_DB
+// questions so the game is always playable.
+// ══════════════════════════════════════════════════════════════
+export const QUESTION_BANK: Record<TopicKey, { mc: MCQuestion[]; sa: SAQuestion[] }> = {
+  factorization:   { mc: [], sa: [] },
+  changeOfSubject: { mc: [], sa: [] },
+  inequalities:    { mc: [], sa: [] },
+  indices:         { mc: [], sa: [] },
+  simultaneous:    { mc: [], sa: [] },
+  polynomials:     { mc: [], sa: [] },
+  quadratic:       { mc: [], sa: [] },
+  functions:       { mc: [], sa: [] },
+  coordinates:     { mc: [], sa: [] },
+  ratios:          { mc: [], sa: [] },
+};
+
+// ══════════════════════════════════════════════════════════════
 // EVOLUTION DATA — 8 types × 3 stages
 // ══════════════════════════════════════════════════════════════
 export interface EvolutionStage {

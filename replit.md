@@ -42,13 +42,16 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
   - Answer shuffling: every MC question randomises A/B/C/D via ShuffledQ
   - Dynamic damage: BASE_DAMAGE=34; playerDmg = 34×(playerLv/foeLv); at equal levels 2 hits → 32% HP
   - Defense bonus: Stage 1 = 10% damage reduction; Stage 2 = 20%
-  - Wild battles: foeLv = playerLv (always balanced); 50 XP/correct answer
+  - **Per-Algemon leveling**: each PartyMember has its own `xp` field; active battler earns XP on victory; evolution (Lv 11/21) is per-Algemon
+  - Wild battles: foeLv = activeAlgemon.lv (balanced); 50 XP/correct answer
   - 8 Gyms with fixed foeLevels (4→6→8→10→12→14→17→20); 100 XP/correct
   - Elite Four (unlock after 8 badges); foeLevels 22→24→26→28; 150 XP/correct
   - XP level cap: 30; evolution triggers at Level 11 (Stage 1) and Level 21 (Stage 2)
-  - Evolution screen shown post-battle when level crosses threshold
-  - Party system up to 6; caught Algemon store baseType only (name/emoji from player level)
-  - Status screen: accuracy %, Dex collection 24/24, save code, bag contents
+  - Evolution screen shown post-battle when active Algemon crosses stage threshold
+  - Party system up to 6; each member has baseType + xp + color
+  - **QUESTION_BANK**: centralized `QUESTION_BANK` constant in gameData.ts; each topic has `mc[]` (battle MC questions) and `sa[]` (catch SA questions); engine falls back to ALGE_DB if empty — paste custom HKDSE questions here
+  - **Algaball catch mechanic**: no dedicated CATCH button; throw Algaball from bag at <30% HP → triggers short-answer question; correct = catch; ball consumed regardless
+  - Status screen: accuracy %, Dex collection 24/24, "Active XP" for current Algemon, save code
   - Alge-Library: 10 study topics with formulas + HKDSE traps
   - Economy: Tuck Shop sells Hints (50AC), Algaballs (50AC), Potions (30AC)
   - 10 topics: factorization, changeOfSubject, inequalities, indices, simultaneous, polynomials, quadratic, functions, coordinates, ratios
