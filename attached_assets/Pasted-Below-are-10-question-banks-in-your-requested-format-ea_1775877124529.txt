@@ -1,0 +1,1143 @@
+Below are 10 question banks in your requested format, each with 15 basic HKDSE-style MC questions covering Number and Algebra topics from the HKDSE curriculum. [oupchina.com](https://www.oupchina.com.hk/education/secondary/maths/e2_level0_dse.pdf)
+
+***
+
+## (1) Factorization
+
+```js
+const FACTORIZATION_BANK = [
+  {
+    // QF1
+    q: "Factorize $2x^2 + 5x + 3$.",
+    options: ["$(2x+3)(x+1)$", "$(2x+1)(x+3)$", "$(x+3)^2$", "$(2x-1)(x-3)$"],
+    correct: 0,
+    hint: "Find two numbers whose product is $2\\times 3=6$ and sum is $5$."
+  },
+  {
+    // QF2
+    q: "Factorize $x^2 - 7x + 12$.",
+    options: ["$(x-3)(x-4)$", "$(x+3)(x+4)$", "$(x-2)(x-6)$", "$(x-1)(x-12)$"],
+    correct: 0,
+    hint: "Find two numbers with product $12$ and sum $-7$."
+  },
+  {
+    // QF3
+    q: "Factorize $3x^2 - 12x$.",
+    options: ["$3x(x-4)$", "$3(x-4)$", "$x(3x+4)$", "$x(x-12)$"],
+    correct: 0,
+    hint: "First factor out the common factor $3x$."
+  },
+  {
+    // QF4
+    q: "Factorize $a^2 - 16$.",
+    options: ["$(a-4)(a+4)$", "$(a-8)(a+2)$", "$(a-4)^2$", "$(a+16)(a-1)$"],
+    correct: 0,
+    hint: "Use the difference of squares: $A^2-B^2=(A-B)(A+B)$."
+  },
+  {
+    // QF5
+    q: "Factorize $4x^2 - 9y^2$.",
+    options: ["$(2x-3y)(2x+3y)$", "$(x-3y)(4x+3y)$", "$(2x-9y)(2x+y)$", "$(4x-3y)(x+3y)$"],
+    correct: 0,
+    hint: "Write as $(2x)^2-(3y)^2$ and apply difference of squares."
+  },
+  {
+    // QF6
+    q: "Factorize $x^2 + 6x + 8$.",
+    options: ["$(x+2)(x+4)$", "$(x-2)(x-4)$", "$(x+1)(x+8)$", "$(x+3)^2$"],
+    correct: 0,
+    hint: "Look for two numbers whose product is $8$ and sum is $6$."
+  },
+  {
+    // QF7
+    q: "Factorize $6x^2 - x - 2$.",
+    options: ["$(3x+2)(2x-1)$", "$(3x-2)(2x+1)$", "$(6x+1)(x-2)$", "$(2x+2)(3x-1)$"],
+    correct: 0,
+    hint: "Use the splitting-middle-term method for $ax^2+bx+c$."
+  },
+  {
+    // QF8
+    q: "Factorize $5y^2 - 20y + 15$.",
+    options: ["$5(y-1)(y-3)$", "$5(y+1)(y-3)$", "$5(y-3)^2$", "$(5y-5)(y-3)$"],
+    correct: 0,
+    hint: "Factor out $5$ first, then factorize the quadratic."
+  },
+  {
+    // QF9
+    q: "Factorize $3a^2b - 6ab^2$.",
+    options: ["$3ab(a-2b)$", "$3ab(a+2b)$", "$3ab^2(a-2)$", "$ab(3a-6b)$"],
+    correct: 0,
+    hint: "Take out the highest common factor of all terms."
+  },
+  {
+    // QF10
+    q: "Factorize $x^2 - 5x$.",
+    options: ["$x(x-5)$", "$(x-1)(x-4)$", "$(x-5)^2$", "$x(x+5)$"],
+    correct: 0,
+    hint: "Factor out the common factor $x$."
+  },
+  {
+    // QF11
+    q: "Factorize $9p^2 + 6p + 1$.",
+    options: ["$(3p+1)^2$", "$(9p+1)(p+1)$", "$(3p-1)^2$", "$(p+1)^2$"],
+    correct: 0,
+    hint: "Check if it is a perfect square trinomial."
+  },
+  {
+    // QF12
+    q: "Factorize $x^2 - 2xy + y^2$.",
+    options: ["$(x-y)^2$", "$(x+y)^2$", "$(x-2y)(x-y)$", "$(x-2y)^2$"],
+    correct: 0,
+    hint: "Recognize the pattern $A^2-2AB+B^2=(A-B)^2$."
+  },
+  {
+    // QF13
+    q: "Factorize $2x^2 - 8x + 6$.",
+    options: ["$2(x-1)(x-3)$", "$2(x+1)(x+3)$", "$(2x-2)(x-3)$", "$2(x-2)(x-3)$"],
+    correct: 0,
+    hint: "Factor out $2$ first, then factorize the quadratic."
+  },
+  {
+    // QF14
+    q: "Factorize $ab - a + 2b - 2$.",
+    options: ["$(a+2)(b-1)$", "$(a-2)(b-1)$", "$(a+2)(b+1)$", "$(a-2)(b+1)$"],
+    correct: 0,
+    hint: "Group terms as $(ab-a)+(2b-2)$ and factor each group."
+  },
+  {
+    // QF15
+    q: "Factorize $4x^2 - 25$.",
+    options: ["$(2x-5)(2x+5)$", "$(4x-5)(x+5)$", "$(2x-25)(2x+1)$", "$(x-5)(4x+5)$"],
+    correct: 0,
+    hint: "Write as $(2x)^2-5^2$ and use difference of squares."
+  }
+];
+```
+
+***
+
+## (2) Change of subject
+
+```js
+const CHANGE_OF_SUBJECT_BANK2 = [
+  {
+    // QC1
+    q: "If $y = 3x + 5$, then $x = $",
+    options: ["$\\frac{y-5}{3}$", "$\\frac{y+5}{3}$", "$3y-5$", "$\\frac{5-y}{3}$"],
+    correct: 0,
+    hint: "Subtract $5$ from both sides, then divide by $3$."
+  },
+  {
+    // QC2
+    q: "If $p = 2q - 7$, then $q = $",
+    options: ["$\\frac{p+7}{2}$", "$\\frac{p-7}{2}$", "$2p+7$", "$\\frac{7-p}{2}$"],
+    correct: 0,
+    hint: "Add $7$ to both sides, then divide by $2$."
+  },
+  {
+    // QC3
+    q: "If $A = \\frac{1}{2}bh$, then $h = $",
+    options: ["$\\frac{2A}{b}$", "$\\frac{A}{2b}$", "$\\frac{b}{2A}$", "$2Ab$"],
+    correct: 0,
+    hint: "Multiply both sides by $2$ and then divide by $b$."
+  },
+  {
+    // QC4
+    q: "If $V = lwh$, then $h = $",
+    options: ["$\\frac{V}{lw}$", "$\\frac{lw}{V}$", "$Vl w$", "$\\frac{V}{l}+w$"],
+    correct: 0,
+    hint: "Divide both sides by $lw$."
+  },
+  {
+    // QC5
+    q: "If $s = ut + \\frac{1}{2}at^2$, then $a = $",
+    options: ["$\\frac{2(s-ut)}{t^2}$", "$\\frac{2(s+ut)}{t^2}$", "$\\frac{s-ut}{2t}$", "$\\frac{ut-s}{t^2}$"],
+    correct: 0,
+    hint: "First subtract $ut$ from both sides, then multiply by $2$ and divide by $t^2$."
+  },
+  {
+    // QC6
+    q: "If $y = \\frac{3x-2}{5}$, then $x = $",
+    options: ["$\\frac{5y+2}{3}$", "$\\frac{5y-2}{3}$", "$\\frac{3y+2}{5}$", "$\\frac{3y-2}{5}$"],
+    correct: 0,
+    hint: "Multiply both sides by $5$, then add $2$ and divide by $3$."
+  },
+  {
+    // QC7
+    q: "If $k = \\frac{4m}{m+1}$, then $m = $",
+    options: ["$\\frac{k}{4-k}$", "$\\frac{4-k}{k}$", "$\\frac{4k}{k-1}$", "$\\frac{k-4}{k}$"],
+    correct: 0,
+    hint: "Cross-multiply to get $k(m+1)=4m$ and collect $m$ terms."
+  },
+  {
+    // QC8
+    q: "If $y = \\sqrt{x+5}$, then $x = $",
+    options: ["$y^2 - 5$", "$y^2 + 5$", "$\\sqrt{y-5}$", "$\\sqrt{y+5}$"],
+    correct: 0,
+    hint: "Square both sides to remove the square root."
+  },
+  {
+    // QC9
+    q: "If $P = \\frac{2L}{L+W}$, then $W = $",
+    options: ["$\\frac{2L-PL}{P}$", "$\\frac{PL-2L}{P}$", "$\\frac{2L+PL}{P}$", "$\\frac{2L}{P}-L$"],
+    correct: 0,
+    hint: "Cross-multiply, then isolate the term involving $W$."
+  },
+  {
+    // QC10
+    q: "If $R = \\frac{1}{I} + 2$, then $I = $",
+    options: ["$\\frac{1}{R-2}$", "$\\frac{1}{R+2}$", "$R-2$", "$R+2$"],
+    correct: 0,
+    hint: "Subtract $2$ from both sides and then take the reciprocal."
+  },
+  {
+    // QC11
+    q: "If $a = \\frac{2b}{3c}$, then $b = $",
+    options: ["$\\frac{3ac}{2}$", "$\\frac{2ac}{3}$", "$\\frac{2a}{3c}$", "$\\frac{3a}{2c}$"],
+    correct: 0,
+    hint: "Multiply both sides by $3c$ and then divide by $2$."
+  },
+  {
+    // QC12
+    q: "If $t = \\frac{d}{v}$, then $v = $",
+    options: ["$\\frac{d}{t}$", "$dt$", "$\\frac{t}{d}$", "$d-t$"],
+    correct: 0,
+    hint: "Multiply both sides by $v$ and divide by $t$."
+  },
+  {
+    // QC13
+    q: "If $M = \\frac{xy}{x+y}$, then $y = $",
+    options: ["$\\frac{Mx}{x-M}$", "$\\frac{Mx}{x+M}$", "$\\frac{Mx}{M-x}$", "$\\frac{x-M}{Mx}$"],
+    correct: 0,
+    hint: "Cross-multiply and collect terms in $y$ on one side."
+  },
+  {
+    // QC14
+    q: "If $p = \\frac{3}{q-1}$, then $q = $",
+    options: ["$\\frac{3+p}{p}$", "$\\frac{3-p}{p}$", "$\\frac{3}{p}+1$", "$\\frac{3}{p}-1$"],
+    correct: 2,
+    hint: "Multiply both sides by $(q-1)$, then solve for $q$."
+  },
+  {
+    // QC15
+    q: "If $y = \\frac{2x+1}{x-3}$, then $x = $",
+    options: ["$\\frac{3y+1}{y-2}$", "$\\frac{3y-1}{y-2}$", "$\\frac{3y+1}{y+2}$", "$\\frac{3y-1}{y+2}$"],
+    correct: 0,
+    hint: "Cross-multiply to get $y(x-3)=2x+1$ and group $x$ terms."
+  }
+];
+```
+
+***
+
+## (3) Inequalities
+
+```js
+const INEQUALITIES_BANK = [
+  {
+    // QI1
+    q: "Solve the inequality $3x - 5 > 7$.",
+    options: ["$x > 4$", "$x > \\frac{4}{3}$", "$x < 4$", "$x < \\frac{4}{3}$"],
+    correct: 0,
+    hint: "Add $5$ to both sides, then divide by $3$."
+  },
+  {
+    // QI2
+    q: "Solve the inequality $5 - 2x \\le 1$.",
+    options: ["$x \\ge 2$", "$x \\le 2$", "$x \\ge -2$", "$x \\le -2$"],
+    correct: 0,
+    hint: "Subtract $5$ from both sides, then divide by $-2$ and reverse the inequality sign."
+  },
+  {
+    // QI3
+    q: "Solve the inequality $4x + 3 < 11$.",
+    options: ["$x < 2$", "$x > 2$", "$x < \\frac{11}{4}$", "$x > \\frac{11}{4}$"],
+    correct: 0,
+    hint: "Subtract $3$, then divide by $4$."
+  },
+  {
+    // QI4
+    q: "Solve the inequality $7x + 2 \\ge 9$.",
+    options: ["$x \\ge 1$", "$x \\le 1$", "$x \\ge \\frac{2}{7}$", "$x \\le \\frac{2}{7}$"],
+    correct: 0,
+    hint: "Subtract $2$ from both sides and then divide by $7$."
+  },
+  {
+    // QI5
+    q: "Solve the inequality $2x - 3 < x + 4$.",
+    options: ["$x < 7$", "$x > 7$", "$x < -7$", "$x > -7$"],
+    correct: 0,
+    hint: "Bring all $x$ terms to one side and constants to the other."
+  },
+  {
+    // QI6
+    q: "Solve the inequality $\\frac{x}{3} > 2$.",
+    options: ["$x > 6$", "$x < 6$", "$x > \\frac{2}{3}$", "$x < \\frac{2}{3}$"],
+    correct: 0,
+    hint: "Multiply both sides by $3$."
+  },
+  {
+    // QI7
+    q: "Solve the inequality $\\frac{x-1}{2} \\le 4$.",
+    options: ["$x \\le 9$", "$x \\ge 9$", "$x \\le 7$", "$x \\ge 7$"],
+    correct: 0,
+    hint: "Multiply both sides by $2$, then add $1$."
+  },
+  {
+    // QI8
+    q: "Solve the inequality $-3x + 6 < 0$.",
+    options: ["$x > 2$", "$x < 2$", "$x > -2$", "$x < -2$"],
+    correct: 0,
+    hint: "Move $6$ to the other side and divide by $-3$, reversing the sign."
+  },
+  {
+    // QI9
+    q: "Solve the inequality $x^2 - 9 < 0$.",
+    options: ["$-3 < x < 3$", "$x < -3$ or $x > 3$", "$x > 3$", "$x < -3$"],
+    correct: 0,
+    hint: "Factorize to $(x-3)(x+3)<0$ and use the sign of each factor."
+  },
+  {
+    // QI10
+    q: "Solve the inequality $(x-1)(x-4) \\ge 0$.",
+    options: ["$x \\le 1$ or $x \\ge 4$", "$1 < x < 4$", "$x \\ge 1$ and $x \\le 4$", "$x > 1$ or $x < 4$"],
+    correct: 0,
+    hint: "Consider where each factor is positive or negative on the number line."
+  },
+  {
+    // QI11
+    q: "Solve the inequality $2 < x+3 \\le 7$.",
+    options: ["$-1 < x \\le 4$", "$2 < x \\le 7$", "$-1 \\le x < 4$", "$-1 < x < 4$"],
+    correct: 0,
+    hint: "Subtract $3$ from all three parts of the compound inequality."
+  },
+  {
+    // QI12
+    q: "Solve the inequality $-4 \\le 2x - 2 < 6$.",
+    options: ["$-1 \\le x < 4$", "$-2 \\le x < 3$", "$-1 < x \\le 4$", "$-2 < x \\le 3$"],
+    correct: 0,
+    hint: "Add $2$ to all three parts, then divide all by $2$."
+  },
+  {
+    // QI13
+    q: "Which of the following is the solution set of $5x+10 > 0$?",
+    options: ["$x > -2$", "$x < -2$", "$x > 2$", "$x < 2$"],
+    correct: 0,
+    hint: "Subtract $10$, then divide by $5$."
+  },
+  {
+    // QI14
+    q: "Solve the inequality $\\frac{2x+1}{3} \\ge 1$.",
+    options: ["$x \\ge 1$", "$x \\ge \\frac{1}{2}$", "$x \\ge -1$", "$x \\ge -\\frac{1}{2}$"],
+    correct: 0,
+    hint: "Multiply by $3$, then subtract $1$ and divide by $2$."
+  },
+  {
+    // QI15
+    q: "Solve the inequality $7 - x < 4$.",
+    options: ["$x > 3$", "$x < 3$", "$x > -3$", "$x < -3$"],
+    correct: 0,
+    hint: "Subtract $7$ from both sides, then multiply by $-1$ and reverse the sign."
+  }
+];
+```
+
+***
+
+## (4) Laws of Indices
+
+```js
+const INDICES_BANK = [
+  {
+    // QL1
+    q: "Simplify $a^3 \\times a^4$.",
+    options: ["$a^7$", "$a^{12}$", "$a^{1}$", "$a^{81}$"],
+    correct: 0,
+    hint: "When multiplying with the same base, add the indices."
+  },
+  {
+    // QL2
+    q: "Simplify $\\frac{x^5}{x^2}$ (where $x \\ne 0$).",
+    options: ["$x^3$", "$x^7$", "$x^{10}$", "$x^{-3}$"],
+    correct: 0,
+    hint: "When dividing with the same base, subtract the indices."
+  },
+  {
+    // QL3
+    q: "Simplify $(y^2)^3$.",
+    options: ["$y^6$", "$y^5$", "$y^9$", "$y^{1}$"],
+    correct: 0,
+    hint: "Use $(a^m)^n = a^{mn}$."
+  },
+  {
+    // QL4
+    q: "Simplify $2^3 \\times 2^4$.",
+    options: ["$2^7$", "$2^{12}$", "$2^{1}$", "$2^{9}$"],
+    correct: 0,
+    hint: "Add the indices $3$ and $4$."
+  },
+  {
+    // QL5
+    q: "Simplify $\\frac{3^6}{3^2}$.",
+    options: ["$3^4$", "$3^8$", "$3^{3}$", "$3^{12}$"],
+    correct: 0,
+    hint: "Subtract the indices: $6-2$."
+  },
+  {
+    // QL6
+    q: "Simplify $x^0$ (where $x \\ne 0$).",
+    options: ["$1$", "$0$", "$x$", "$-1$"],
+    correct: 0,
+    hint: "Any non-zero number to the power of $0$ is $1$."
+  },
+  {
+    // QL7
+    q: "Simplify $a^{-2}$.",
+    options: ["$\\frac{1}{a^2}$", "$-a^2$", "$a^2$", "$-\\frac{1}{a^2}$"],
+    correct: 0,
+    hint: "Negative index means reciprocal: $a^{-n}=\\frac{1}{a^n}$."
+  },
+  {
+    // QL8
+    q: "Simplify $\\sqrt{x}$ using indices.",
+    options: ["$x^{\\frac{1}{2}}$", "$x^{2}$", "$x^{\\frac{1}{3}}$", "$x^{-\\frac{1}{2}}$"],
+    correct: 0,
+    hint: "Square root is the same as power $\\frac{1}{2}$."
+  },
+  {
+    // QL9
+    q: "Simplify $\\sqrt [youtube](https://www.youtube.com/watch?v=xMZks7kc8mU){y^2}$.",
+    options: ["$y^{\\frac{2}{3}}$", "$y^{\\frac{3}{2}}$", "$y^{\\frac{1}{3}}$", "$y^{2}$"],
+    correct: 0,
+    hint: "Cube root corresponds to power $\\frac{1}{3}$."
+  },
+  {
+    // QL10
+    q: "Simplify $(ab)^3$.",
+    options: ["$a^3b^3$", "$a^3b$", "$ab^3$", "$a^2b^2$"],
+    correct: 0,
+    hint: "Raise each factor to the power $3$."
+  },
+  {
+    // QL11
+    q: "Simplify $\\frac{x^3y^2}{x y}$ (where $x,y \\ne 0$).",
+    options: ["$x^2y$", "$x^2y^2$", "$xy$", "$x^3y$"],
+    correct: 0,
+    hint: "Subtract the indices of each base separately."
+  },
+  {
+    // QL12
+    q: "Simplify $\\left(\\frac{1}{2}\\right)^{-3}$.",
+    options: ["$8$", "$\\frac{1}{8}$", "$-8$", "$-\\frac{1}{8}$"],
+    correct: 0,
+    hint: "Use $a^{-n}=\\frac{1}{a^n}$ and simplify."
+  },
+  {
+    // QL13
+    q: "Simplify $x^{\\frac{1}{2}} \\times x^{\\frac{1}{2}}$ (where $x>0$).",
+    options: ["$x$", "$x^{\\frac{1}{4}}$", "$x^2$", "$x^{\\frac{1}{2}}$"],
+    correct: 0,
+    hint: "Add the indices $\\frac{1}{2}+\\frac{1}{2}$."
+  },
+  {
+    // QL14
+    q: "Simplify $\\frac{a^{5}}{a^{-2}}$ (where $a \\ne 0$).",
+    options: ["$a^{7}$", "$a^{3}$", "$a^{-7}$", "$a^{-3}$"],
+    correct: 0,
+    hint: "Subtract the indices: $5-(-2)$."
+  },
+  {
+    // QL15
+    q: "Simplify $(x^{-1}y^2)^2$ (where $x,y \\ne 0$).",
+    options: ["$x^{-2}y^4$", "$x^2y^4$", "$x^{-2}y^2$", "$x^{-1}y^4$"],
+    correct: 0,
+    hint: "Multiply each index by $2$."
+  }
+];
+```
+
+***
+
+## (5) Simultaneous Equations
+
+```js
+const SIMULTANEOUS_BANK = [
+  {
+    // QS1
+    q: "Solve the system $\\begin{cases} x + y = 7 \\\\ x - y = 1 \\end{cases}$. The value of $x$ is",
+    options: ["$4$", "$3$", "$2$", "$5$"],
+    correct: 0,
+    hint: "Add the two equations to eliminate $y$."
+  },
+  {
+    // QS2
+    q: "Solve the system $\\begin{cases} x + y = 7 \\\\ x - y = 1 \\end{cases}$. The value of $y$ is",
+    options: ["$3$", "$4$", "$2$", "$5$"],
+    correct: 0,
+    hint: "Substitute $x=4$ into $x+y=7$."
+  },
+  {
+    // QS3
+    q: "Solve the system $\\begin{cases} 2x + y = 8 \\\\ x - y = 1 \\end{cases}$. The value of $x$ is",
+    options: ["$3$", "$4$", "$5$", "$2$"],
+    correct: 1,
+    hint: "Add the equations to eliminate $y$."
+  },
+  {
+    // QS4
+    q: "Solve the system $\\begin{cases} 2x + y = 8 \\\\ x - y = 1 \\end{cases}$. The value of $y$ is",
+    options: ["$0$", "$1$", "$2$", "$3$"],
+    correct: 2,
+    hint: "Substitute $x=4$ into one of the equations."
+  },
+  {
+    // QS5
+    q: "Solve the system $\\begin{cases} 3x - 2y = 4 \\\\ x + y = 5 \\end{cases}$. The value of $x$ is",
+    options: ["$2$", "$3$", "$4$", "$1$"],
+    correct: 1,
+    hint: "Use substitution or elimination to solve for $x$."
+  },
+  {
+    // QS6
+    q: "Solve the system $\\begin{cases} 3x - 2y = 4 \\\\ x + y = 5 \\end{cases}$. The value of $y$ is",
+    options: ["$2$", "$3$", "$1$", "$4$"],
+    correct: 0,
+    hint: "After finding $x=3$, substitute back to find $y$."
+  },
+  {
+    // QS7
+    q: "Solve the system $\\begin{cases} x + 2y = 10 \\\\ 2x - y = 1 \\end{cases}$. The value of $x$ is",
+    options: ["$3$", "$4$", "$5$", "$2$"],
+    correct: 2,
+    hint: "Multiply the first equation and use elimination."
+  },
+  {
+    // QS8
+    q: "Solve the system $\\begin{cases} x + 2y = 10 \\\\ 2x - y = 1 \\end{cases}$. The value of $y$ is",
+    options: ["$2.5$", "$3$", "$4$", "$1$"],
+    correct: 1,
+    hint: "Substitute $x=5$ into $x+2y=10$."
+  },
+  {
+    // QS9
+    q: "Solve the system $\\begin{cases} 4x + y = 9 \\\\ 2x - y = 1 \\end{cases}$. The value of $x$ is",
+    options: ["$2$", "$3$", "$4$", "$1$"],
+    correct: 0,
+    hint: "Add the equations to eliminate $y$."
+  },
+  {
+    // QS10
+    q: "Solve the system $\\begin{cases} 4x + y = 9 \\\\ 2x - y = 1 \\end{cases}$. The value of $y$ is",
+    options: ["$1$", "$2$", "$3$", "$4$"],
+    correct: 2,
+    hint: "Substitute $x=2$ into one of the equations."
+  },
+  {
+    // QS11
+    q: "Solve the system $\\begin{cases} x + y = 6 \\\\ 2x + 3y = 16 \\end{cases}$. The value of $x$ is",
+    options: ["$2$", "$3$", "$4$", "$5$"],
+    correct: 0,
+    hint: "Express $y$ from the first equation and substitute into the second."
+  },
+  {
+    // QS12
+    q: "Solve the system $\\begin{cases} x + y = 6 \\\\ 2x + 3y = 16 \\end{cases}$. The value of $y$ is",
+    options: ["$4$", "$3$", "$2$", "$5$"],
+    correct: 0,
+    hint: "After finding $x=2$, use $x+y=6$."
+  },
+  {
+    // QS13
+    q: "Solve the system $\\begin{cases} 3x + y = 11 \\\\ x - y = 1 \\end{cases}$. The value of $x$ is",
+    options: ["$3$", "$4$", "$5$", "$2$"],
+    correct: 2,
+    hint: "Add the equations after adjusting signs if necessary."
+  },
+  {
+    // QS14
+    q: "Solve the system $\\begin{cases} 3x + y = 11 \\\\ x - y = 1 \\end{cases}$. The value of $y$ is",
+    options: ["$2$", "$3$", "$4$", "$5$"],
+    correct: 0,
+    hint: "Substitute $x=5$ into $x-y=1$."
+  },
+  {
+    // QS15
+    q: "Solve the system $\\begin{cases} 2x + 5y = 19 \\\\ x - y = 1 \\end{cases}$. The value of $y$ is",
+    options: ["$3$", "$2$", "$4$", "$1$"],
+    correct: 0,
+    hint: "From $x-y=1$, express $x$ and substitute into the first equation."
+  }
+];
+```
+
+***
+
+## (6) Polynomials
+
+```js
+const POLYNOMIALS_BANK = [
+  {
+    // QP1
+    q: "What is the degree of the polynomial $3x^4 - 2x^3 + x - 7$?",
+    options: ["$4$", "$3$", "$2$", "$1$"],
+    correct: 0,
+    hint: "The degree is the highest power of $x$."
+  },
+  {
+    // QP2
+    q: "Simplify $(2x^2 - 3x + 1) + (x^2 + x - 4)$.",
+    options: ["$3x^2 - 2x - 3$", "$3x^2 - 4x + 5$", "$x^2 - 2x - 3$", "$x^2 + 4x - 3$"],
+    correct: 0,
+    hint: "Add the coefficients of like terms."
+  },
+  {
+    // QP3
+    q: "Simplify $(5x^3 - x) - (2x^3 + 3x)$.",
+    options: ["$3x^3 - 4x$", "$3x^3 + 2x$", "$7x^3 - 4x$", "$3x^3 - 2x$"],
+    correct: 0,
+    hint: "Subtract each term carefully, watching the signs."
+  },
+  {
+    // QP4
+    q: "Expand $(x+2)(x+3)$.",
+    options: ["$x^2 + 5x + 6$", "$x^2 + 6x + 5$", "$x^2 + 5x + 3$", "$x^2 + 2x + 3$"],
+    correct: 0,
+    hint: "Use the distributive law or FOIL."
+  },
+  {
+    // QP5
+    q: "Expand $(2x-1)(x+4)$.",
+    options: ["$2x^2 + 7x - 4$", "$2x^2 + 8x - 1$", "$2x^2 - 7x - 4$", "$2x^2 + 7x + 4$"],
+    correct: 0,
+    hint: "Multiply each term in the first bracket by each term in the second."
+  },
+  {
+    // QP6
+    q: "Expand $(x-3)^2$.",
+    options: ["$x^2 - 6x + 9$", "$x^2 + 6x + 9$", "$x^2 - 3x + 9$", "$x^2 - 9$"],
+    correct: 0,
+    hint: "Use $(a-b)^2 = a^2 - 2ab + b^2$."
+  },
+  {
+    // QP7
+    q: "Which of the following is a polynomial in $x$?",
+    options: ["$3x^2 - 2x + 1$", "$\\frac{1}{x}$", "$x^{-1} + 2$", "$\\sqrt{x}$"],
+    correct: 0,
+    hint: "Polynomial terms have non-negative integer indices."
+  },
+  {
+    // QP8
+    q: "The coefficient of $x^2$ in $4x^2 - 5x + 7$ is",
+    options: ["$4$", "$-5$", "$7$", "$2$"],
+    correct: 0,
+    hint: "Look at the number in front of $x^2$."
+  },
+  {
+    // QP9
+    q: "If $f(x) = x^2 - 4x + 3$, find $f(2)$.",
+    options: ["$-1$", "$1$", "$3$", "$5$"],
+    correct: 1,
+    hint: "Substitute $x=2$ into $f(x)$."
+  },
+  {
+    // QP10
+    q: "If $g(x) = 3x^3 - 2x$, then $g(1)$ equals",
+    options: ["$1$", "$-1$", "$3$", "$-3$"],
+    correct: 0,
+    hint: "Evaluate the polynomial at $x=1$."
+  },
+  {
+    // QP11
+    q: "Simplify $2(x^2 - 3x) - (x^2 - x + 4)$.",
+    options: ["$x^2 - 5x - 4$", "$x^2 - 5x + 4$", "$-x^2 - 5x - 4$", "$x^2 + 5x - 4$"],
+    correct: 0,
+    hint: "Expand first, then collect like terms."
+  },
+  {
+    // QP12
+    q: "Which of the following is a cubic polynomial?",
+    options: ["$x^3 - 2x + 1$", "$x^2 - 2x + 1$", "$x^4 - 2x + 1$", "$-2x + 1$"],
+    correct: 0,
+    hint: "A cubic polynomial has highest power $3$."
+  },
+  {
+    // QP13
+    q: "Simplify $(x+1)(x^2 - x + 1)$.",
+    options: ["$x^3 + 1$", "$x^3 - 1$", "$x^2 + 1$", "$x^3 + x^2 + 1$"],
+    correct: 0,
+    hint: "Multiply and collect like terms; it is a known identity."
+  },
+  {
+    // QP14
+    q: "In the polynomial $4x^3 - 7x + k$, the constant term is",
+    options: ["$k$", "$4$", "$-7$", "$0$"],
+    correct: 0,
+    hint: "The constant term is the term without $x$."
+  },
+  {
+    // QP15
+    q: "Simplify $(2x - 3) + (x - 5)$.",
+    options: ["$3x - 8$", "$x - 8$", "$3x - 2$", "$x - 2$"],
+    correct: 0,
+    hint: "Add the like terms in $x$ and the constants."
+  }
+];
+```
+
+***
+
+## (7) Quadratic Equations
+
+```js
+const QUADRATICS_BANK = [
+  {
+    // QQ1
+    q: "Solve $x^2 - 5x + 6 = 0$.",
+    options: ["$x = 2$ or $3$", "$x = -2$ or $-3$", "$x = 1$ or $6$", "$x = -1$ or $-6$"],
+    correct: 0,
+    hint: "Factorize into $(x-2)(x-3)=0$."
+  },
+  {
+    // QQ2
+    q: "Solve $x^2 + 4x + 4 = 0$.",
+    options: ["$x = -2$", "$x = 2$", "$x = 4$", "$x = -4$"],
+    correct: 0,
+    hint: "Recognize it as $(x+2)^2=0$."
+  },
+  {
+    // QQ3
+    q: "Solve $x^2 - 9 = 0$.",
+    options: ["$x = 3$ or $-3$", "$x = 9$ or $-9$", "$x = 0$ or $9$", "$x = 0$ or $-9$"],
+    correct: 0,
+    hint: "Use difference of squares: $(x-3)(x+3)=0$."
+  },
+  {
+    // QQ4
+    q: "Solve $2x^2 - 7x + 3 = 0$.",
+    options: ["$x = 3$ or $\\frac{1}{2}$", "$x = -3$ or $-\\frac{1}{2}$", "$x = 1$ or $\\frac{3}{2}$", "$x = 3$ or $2$"],
+    correct: 0,
+    hint: "Factorize to $(2x-1)(x-3)=0$."
+  },
+  {
+    // QQ5
+    q: "Solve $x^2 - 4x - 5 = 0$.",
+    options: ["$x = 5$ or $-1$", "$x = -5$ or $1$", "$x = 4$ or $-5$", "$x = -4$ or $5$"],
+    correct: 0,
+    hint: "Find two numbers with product $-5$ and sum $-4$."
+  },
+  {
+    // QQ6
+    q: "Solve $3x^2 = 12$.",
+    options: ["$x = 2$ or $-2$", "$x = 4$ or $-4$", "$x = 3$ or $-3$", "$x = 1$ or $-1$"],
+    correct: 0,
+    hint: "Divide both sides by $3$, then take square roots."
+  },
+  {
+    // QQ7
+    q: "Solve $x^2 = 7x$.",
+    options: ["$x = 0$ or $7$", "$x = -7$ or $7$", "$x = 1$ or $7$", "$x = -1$ or $7$"],
+    correct: 0,
+    hint: "Factorize to $x(x-7)=0$."
+  },
+  {
+    // QQ8
+    q: "Solve $x^2 + x - 6 = 0$.",
+    options: ["$x = 2$ or $-3$", "$x = -2$ or $3$", "$x = 1$ or $-6$", "$x = 6$ or $-1$"],
+    correct: 0,
+    hint: "Factorize into $(x+3)(x-2)=0$."
+  },
+  {
+    // QQ9
+    q: "Solve $2x^2 + x - 3 = 0$.",
+    options: ["$x = 1$ or $-\\frac{3}{2}$", "$x = -1$ or $\\frac{3}{2}$", "$x = 3$ or $-\\frac{1}{2}$", "$x = -3$ or $\\frac{1}{2}$"],
+    correct: 0,
+    hint: "Factorize to $(2x-3)(x+1)=0$."
+  },
+  {
+    // QQ10
+    q: "The equation $x^2 - 6x + k = 0$ has equal roots. The value of $k$ is",
+    options: ["$9$", "$3$", "$6$", "$12$"],
+    correct: 0,
+    hint: "For equal roots, the discriminant $b^2-4ac$ is zero."
+  },
+  {
+    // QQ11
+    q: "Which of the following is the quadratic formula for $ax^2+bx+c=0$?",
+    options: ["$x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}$", "$x=\\frac{-b\\pm\\sqrt{b^2+4ac}}{2a}$", "$x=\\frac{b\\pm\\sqrt{b^2-4ac}}{2a}$", "$x=\\frac{b\\pm\\sqrt{b^2+4ac}}{2a}$"],
+    correct: 0,
+    hint: "Recall the standard quadratic formula."
+  },
+  {
+    // QQ12
+    q: "Solve $x^2 - 2x - 8 = 0$.",
+    options: ["$x = 4$ or $-2$", "$x = -4$ or $2$", "$x = 4$ or $2$", "$x = -4$ or $-2$"],
+    correct: 0,
+    hint: "Factorize to $(x-4)(x+2)=0$."
+  },
+  {
+    // QQ13
+    q: "Solve $x^2 + 9 = 0$ over the real numbers.",
+    options: ["No real solution", "$x = 3$", "$x = -3$", "$x = 3$ or $-3$"],
+    correct: 0,
+    hint: "The square of a real number cannot be negative."
+  },
+  {
+    // QQ14
+    q: "If $x=2$ is a root of $x^2 + kx - 8 = 0$, the value of $k$ is",
+    options: ["$2$", "$-2$", "$4$", "$-4$"],
+    correct: 0,
+    hint: "Substitute $x=2$ into the equation and solve for $k$."
+  },
+  {
+    // QQ15
+    q: "Solve $x^2 - x - 2 = 0$.",
+    options: ["$x = 2$ or $-1$", "$x = -2$ or $1$", "$x = 1$ or $2$", "$x = -1$ or $-2$"],
+    correct: 0,
+    hint: "Factorize to $(x-2)(x+1)=0$."
+  }
+];
+```
+
+***
+
+## (8) Functions and Graphs
+
+```js
+const FUNCTIONS_GRAPHS_BANK = [
+  {
+    // QF1
+    q: "If $f(x) = 2x + 3$, then $f(4)$ equals",
+    options: ["$11$", "$8$", "$7$", "$10$"],
+    correct: 0,
+    hint: "Substitute $x=4$ into the function."
+  },
+  {
+    // QF2
+    q: "If $f(x) = x^2 - 5$, then $f(-2)$ equals",
+    options: ["$-1$", "$-9$", "$-5$", "$1$"],
+    correct: 0,
+    hint: "Remember $(-2)^2 = 4$."
+  },
+  {
+    // QF3
+    q: "The graph of $y = x + 2$ is a",
+    options: ["straight line", "parabola", "circle", "horizontal line"],
+    correct: 0,
+    hint: "A linear function has graph of a straight line."
+  },
+  {
+    // QF4
+    q: "The gradient of the line $y = 3x - 4$ is",
+    options: ["$3$", "$-4$", "$-3$", "$4$"],
+    correct: 0,
+    hint: "In $y=mx+c$, $m$ is the gradient."
+  },
+  {
+    // QF5
+    q: "The $y$-intercept of the line $y = -2x + 5$ is",
+    options: ["$5$", "$-2$", "$-5$", "$2$"],
+    correct: 0,
+    hint: "It is the constant term when $x=0$."
+  },
+  {
+    // QF6
+    q: "If $f(x) = 3x - 1$, then $f(0)$ equals",
+    options: ["$-1$", "$0$", "$1$", "$3$"],
+    correct: 0,
+    hint: "Substitute $x=0$ into $f(x)$."
+  },
+  {
+    // QF7
+    q: "Which of the following is the vertex of the parabola $y = (x-2)^2$?",
+    options: ["$(2,0)$", "$(0,2)$", "$(-2,0)$", "$(0,-2)$"],
+    correct: 0,
+    hint: "For $y=(x-a)^2$, the vertex is $(a,0)$."
+  },
+  {
+    // QF8
+    q: "The graph of $y = x^2$ is",
+    options: ["a parabola opening upwards", "a parabola opening downwards", "a straight line", "a circle"],
+    correct: 0,
+    hint: "Quadratic graphs are parabolas."
+  },
+  {
+    // QF9
+    q: "The $x$-intercepts of the graph of $y = x^2 - 9$ are",
+    options: ["$x = -3$ and $x = 3$", "$x = 0$ and $x = 9$", "$x = -9$ and $x = 9$", "$x = 0$ only"],
+    correct: 0,
+    hint: "Set $y=0$ and solve $x^2-9=0$."
+  },
+  {
+    // QF10
+    q: "If $f(x) = 2x - 1$, then the solution of $f(x) = 5$ is",
+    options: ["$x = 3$", "$x = 2$", "$x = -3$", "$x = -2$"],
+    correct: 0,
+    hint: "Solve $2x-1=5$."
+  },
+  {
+    // QF11
+    q: "The graph of $y = -x$",
+    options: ["passes through the origin", "has $y$-intercept 1", "is horizontal", "is vertical"],
+    correct: 0,
+    hint: "Substitute $x=0$ to find the intercept."
+  },
+  {
+    // QF12
+    q: "If $f(x) = x^2 - 4x + 3$, then $f(1)$ equals",
+    options: ["$0$", "$-2$", "$-4$", "$1$"],
+    correct: 0,
+    hint: "Substitute $x=1$ carefully."
+  },
+  {
+    // QF13
+    q: "Which of the following is the axis of symmetry of $y = x^2 - 4x + 1$?",
+    options: ["$x = 2$", "$x = -2$", "$y = 2$", "$y = -2$"],
+    correct: 0,
+    hint: "For $y = x^2+bx+c$, the axis is $x = -\\frac{b}{2}$."
+  },
+  {
+    // QF14
+    q: "The function $y = k$ (where $k$ is a constant) represents",
+    options: ["a horizontal line", "a vertical line", "a parabola", "a circle"],
+    correct: 0,
+    hint: "All $y$-values are the same constant."
+  },
+  {
+    // QF15
+    q: "If $f(x) = 4 - x$, then $f(4)$ equals",
+    options: ["$0$", "$4$", "$-4$", "$1$"],
+    correct: 0,
+    hint: "Substitute $x=4$ into the function."
+  }
+];
+```
+
+***
+
+## (9) Algebraic Fractions
+
+```js
+const ALGEBRAIC_FRACTIONS_BANK = [
+  {
+    // QA1
+    q: "Simplify $\\frac{2x}{4x}$ (where $x \\ne 0$).",
+    options: ["$\\frac{1}{2}$", "$2$", "$x$", "$\\frac{1}{x}$"],
+    correct: 0,
+    hint: "Cancel the common factor $2x$."
+  },
+  {
+    // QA2
+    q: "Simplify $\\frac{x^2}{x}$ (where $x \\ne 0$).",
+    options: ["$x$", "$x^2$", "$1$", "$\\frac{1}{x}$"],
+    correct: 0,
+    hint: "Subtract the indices of $x$."
+  },
+  {
+    // QA3
+    q: "Simplify $\\frac{3a^2b}{6ab}$ (where $a,b \\ne 0$).",
+    options: ["$\\frac{a}{2}$", "$\\frac{b}{2}$", "$\\frac{1}{2ab}$", "$\\frac{a^2}{2}$"],
+    correct: 0,
+    hint: "Cancel common factors in numerator and denominator."
+  },
+  {
+    // QA4
+    q: "Simplify $\\frac{x+3}{x+3}$ (where $x \\ne -3$).",
+    options: ["$1$", "$x$", "$x+3$", "$0$"],
+    correct: 0,
+    hint: "A non-zero quantity divided by itself is $1$."
+  },
+  {
+    // QA5
+    q: "Simplify $\\frac{x^2-9}{x-3}$ (where $x \\ne 3$).",
+    options: ["$x+3$", "$x-3$", "$x^2+3$", "$x^2-3$"],
+    correct: 0,
+    hint: "Factorize $x^2-9$ first."
+  },
+  {
+    // QA6
+    q: "Simplify $\\frac{x^2-4}{x+2}$ (where $x \\ne -2$).",
+    options: ["$x-2$", "$x+2$", "$x^2+2$", "$x^2-2$"],
+    correct: 0,
+    hint: "Use $x^2-4=(x-2)(x+2)$ and cancel."
+  },
+  {
+    // QA7
+    q: "Simplify $\\frac{2}{x} + \\frac{3}{x}$ (where $x \\ne 0$).",
+    options: ["$\\frac{5}{x}$", "$\\frac{6}{x^2}$", "$\\frac{5x}{2}$", "$\\frac{2}{3x}$"],
+    correct: 0,
+    hint: "The denominators are the same; add the numerators."
+  },
+  {
+    // QA8
+    q: "Simplify $\\frac{1}{x} + \\frac{1}{y}$ (where $x,y \\ne 0$).",
+    options: ["$\\frac{x+y}{xy}$", "$\\frac{xy}{x+y}$", "$\\frac{1}{xy}$", "$\\frac{x-y}{xy}$"],
+    correct: 0,
+    hint: "Use a common denominator $xy$."
+  },
+  {
+    // QA9
+    q: "Simplify $\\frac{3}{x} - \\frac{1}{x}$ (where $x \\ne 0$).",
+    options: ["$\\frac{2}{x}$", "$\\frac{1}{x}$", "$\\frac{3}{x^2}$", "$\\frac{2}{x^2}$"],
+    correct: 0,
+    hint: "The denominators are the same; subtract the numerators."
+  },
+  {
+    // QA10
+    q: "Simplify $\\frac{2}{x} + \\frac{1}{2}$.",
+    options: ["$\\frac{4+ x}{2x}$", "$\\frac{4+2x}{2x}$", "$\\frac{2+x}{2x}$", "$\\frac{4+x}{x}$"],
+    correct: 0,
+    hint: "Use common denominator $2x$."
+  },
+  {
+    // QA11
+    q: "Simplify $\\frac{x}{x+1} + \\frac{1}{x+1}$ (where $x \\ne -1$).",
+    options: ["$1$", "$\\frac{1}{x+1}$", "$\\frac{x+1}{x+1}$", "$x+1$"],
+    correct: 2,
+    hint: "Same denominator; add numerators $x+1$."
+  },
+  {
+    // QA12
+    q: "Simplify $\\frac{4}{x-1} - \\frac{1}{x-1}$ (where $x \\ne 1$).",
+    options: ["$\\frac{3}{x-1}$", "$\\frac{5}{x-1}$", "$\\frac{3}{x+1}$", "$\\frac{5}{x+1}$"],
+    correct: 0,
+    hint: "Same denominator; subtract numerators $4-1$."
+  },
+  {
+    // QA13
+    q: "Simplify $\\frac{x}{2} \\times \\frac{4}{x}$ (where $x \\ne 0$).",
+    options: ["$2$", "$\\frac{2}{x}$", "$2x$", "$\\frac{4}{x^2}$"],
+    correct: 0,
+    hint: "Multiply numerators and denominators, then cancel $x$."
+  },
+  {
+    // QA14
+    q: "Simplify $\\frac{3x}{x^2} \\div \\frac{1}{x}$ (where $x \\ne 0$).",
+    options: ["$3$", "$3x$", "$\\frac{3}{x}$", "$\\frac{3}{x^2}$"],
+    correct: 0,
+    hint: "Division by a fraction is multiplication by its reciprocal."
+  },
+  {
+    // QA15
+    q: "Simplify $\\frac{2x}{x+2} + 1$.",
+    options: ["$\\frac{3x+2}{x+2}$", "$\\frac{2x+1}{x+2}$", "$\\frac{2x+x+2}{x+2}$", "$\\frac{x+2}{2x}$"],
+    correct: 0,
+    hint: "Write $1$ as $\\frac{x+2}{x+2}$ and then add."
+  }
+];
+```
+
+***
+
+## (10) Ratios and Percentage
+
+```js
+const RATIOS_PERCENTAGE_BANK = [
+  {
+    // QR1
+    q: "Express the ratio $2:5$ in simplest form.",
+    options: ["$2:5$", "$4:10$", "$1:2.5$", "$5:2$"],
+    correct: 0,
+    hint: "The numbers $2$ and $5$ have no common factor other than $1$."
+  },
+  {
+    // QR2
+    q: "Simplify the ratio $6:9$.",
+    options: ["$2:3$", "$3:2$", "$1:3$", "$3:1$"],
+    correct: 0,
+    hint: "Divide both terms by their HCF, which is $3$."
+  },
+  {
+    // QR3
+    q: "If $20$ out of $100$ students are left-handed, the percentage of left-handed students is",
+    options: ["$20\\%$", "$10\\%$", "$5\\%$", "$2\\%$"],
+    correct: 0,
+    hint: "Percentage is $\\frac{20}{100}\\times 100\\%$."
+  },
+  {
+    // QR4
+    q: "Express $0.25$ as a percentage.",
+    options: ["$25\\%$", "$2.5\\%$", "$0.25\\%$", "$250\\%$"],
+    correct: 0,
+    hint: "Multiply by $100\\%$."
+  },
+  {
+    // QR5
+    q: "Express $\\frac{3}{4}$ as a percentage.",
+    options: ["$75\\%$", "$25\\%$", "$50\\%$", "$60\\%$"],
+    correct: 0,
+    hint: "Compute $\\frac{3}{4}\\times 100\\%$."
+  },
+  {
+    // QR6
+    q: "A price increases from $80$ to $100$. The percentage increase is",
+    options: ["$25\\%$", "$20\\%$", "$15\\%$", "$10\\%$"],
+    correct: 1,
+    hint: "Increase is $20$; divide by original $80$ and multiply by $100\\%$."
+  },
+  {
+    // QR7
+    q: "A quantity decreases from $50$ to $40$. The percentage decrease is",
+    options: ["$20\\%$", "$10\\%$", "$15\\%$", "$25\\%$"],
+    correct: 0,
+    hint: "Decrease is $10$; divide by original $50$."
+  },
+  {
+    // QR8
+    q: "In a class, boys and girls are in the ratio $3:2$. If there are $30$ boys, the number of girls is",
+    options: ["$20$", "$15$", "$18$", "$25$"],
+    correct: 0,
+    hint: "Find the common factor $k$ such that $3k=30$."
+  },
+  {
+    // QR9
+    q: "In a school, the ratio of teachers to students is $1:20$. If there are $25$ teachers, the number of students is",
+    options: ["$500$", "$400$", "$450$", "$550$"],
+    correct: 0,
+    hint: "Multiply $25$ by $20$."
+  },
+  {
+    // QR10
+    q: "Express $45\\%$ as a fraction in simplest form.",
+    options: ["$\\frac{9}{20}$", "$\\frac{45}{100}$", "$\\frac{5}{9}$", "$\\frac{4}{9}$"],
+    correct: 0,
+    hint: "Write $45\\%$ as $\\frac{45}{100}$ and simplify."
+  },
+  {
+    // QR11
+    q: "Express the ratio $8:12$ in simplest form.",
+    options: ["$2:3$", "$4:6$", "$8:12$", "$3:2$"],
+    correct: 0,
+    hint: "Divide both by the HCF $4$."
+  },
+  {
+    // QR12
+    q: "A shirt is sold for $\\$160$ after a $20\\%$ discount. The marked price is",
+    options: ["$\\$200$", "$\\$180$", "$\\$150$", "$\\$190$"],
+    correct: 0,
+    hint: "Selling price is $80\\%$ of the marked price."
+  },
+  {
+    // QR13
+    q: "A savings account offers $5\\%$ simple interest per year. The interest on $\\$1000$ after one year is",
+    options: ["$\\$50$", "$\\$5$", "$\\$500$", "$\\$25$"],
+    correct: 0,
+    hint: "Compute $5\\%$ of $1000$."
+  },
+  {
+    // QR14
+    q: "The ratio of red to blue balls is $4:1$. If there are $20$ red balls, the total number of balls is",
+    options: ["$25$", "$24$", "$21$", "$5$"],
+    correct: 0,
+    hint: "First find $k$ from $4k=20$, then compute $(4+1)k$."
+  },
+  {
+    // QR15
+    q: "In a test, a student scores $36$ out of $40$. His score as a percentage is",
+    options: ["$90\\%$", "$80\\%$", "$85\\%$", "$95\\%$"],
+    correct: 0,
+    hint: "Compute $\\frac{36}{40}\\times 100\\%$."
+  }
+];
+```
+
+These banks should plug directly into your existing structure; rename the constants as needed to integrate with your app.

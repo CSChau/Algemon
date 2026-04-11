@@ -1,0 +1,47 @@
+Subject: Implementation of Save System, Capture Balancing, Level Scaling, and Gym Cutscenes
+
+Please update the game code to implement the following features and structural changes:
+
+1. Save-Code Input (First Page):
+
+On the Start Screen, add a text input field and a button labeled "Paste Save Code".
+
+Logic: When clicked, the game must parse the code string, update the playerParty (levels, XP, species), algecoins, and gymsDefeated variables, and jump directly to the Main Menu.
+
+2. Dynamic Capture Mechanics:
+
+Remove the "Hard Limit" of 30% HP for Algeballs.
+
+New Logic: The capture success rate should follow a formula: Success_Chance = (1 - (Current_Foe_HP / Max_Foe_HP)) * Catch_Rate_Modifier.
+
+Result: An Algeball can be used at any time, but it has a very low chance at high HP and a very high (nearly guaranteed) chance at low HP.
+
+3. Wild Level Scaling:
+
+Wild Algemon levels should not be identical to the player.
+
+Formula: Wild_Level = Math.max(1, Math.floor(Player_Highest_Level * 0.8) + Math.floor(Math.random() * 3)).
+
+Result: Early in the game, foes are very weak. As the player levels up, wild foes get stronger but usually stay slightly below the player's level to allow for easier grinding.
+
+4. Topic Swap: Ground-Type "Algebraic Fractions":
+
+Rename the Ground-Type focus from "Coordinate Geometry" to "Algebraic Fractions".
+
+Update the species' lore:
+
+Terron: Focuses on simple simplification of fractions.
+
+Terragrid: Focuses on addition/subtraction of fractions with different denominators.
+
+Terracoord: (Rename to Terrafract) Focuses on complex fractions and division.
+
+5. Gym Entrance Cutscenes:
+
+When a player selects "Challenge the Gym," display a full-screen overlay for 3 seconds before the battle starts.
+
+Content: Show a stylized text description of the Tai Po landmark (e.g., "Arriving at the Lam Tsuen River... The Water Gym Leader awaits.") and a CSS-animated "transition" effect (like a screen wipe or fade-in).
+
+6. Technical Requirement:
+
+Ensure the generateSaveCode() function is updated to include all new variables so the "Paste Save Code" feature works correctly.

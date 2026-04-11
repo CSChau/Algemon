@@ -8,8 +8,8 @@ import {
   EVOLUTION_DATA, getEvolutionStage, getSpeciesId,
   PLAYER_MAX_HP, ENEMY_MAX_HP, BASE_DAMAGE,
   calcPlayerDmg, calcFoeDmg,
-  CATCH_HP_PCT, XP_PER_CORRECT_WILD, XP_PER_CORRECT_GYM, XP_PER_CORRECT_ELITE,
-  XP_PER_LEVEL, HINT_MIN_LEVEL, HINT_TOOL_COST, ALGEBALL_COST, POTION_COST, POTION_HEAL,
+  CATCH_MODIFIER, XP_PER_CORRECT_WILD, XP_PER_CORRECT_GYM, XP_PER_CORRECT_ELITE,
+  XP_PER_LEVEL, MAX_LEVEL, HINT_MIN_LEVEL, HINT_TOOL_COST, ALGEBALL_COST, POTION_COST, POTION_HEAL,
   WILD_WIN_COINS, GYM_WIN_COINS, ELITE_WIN_COINS,
   xpToLevel, xpToNextLevel, pickRandom, normalizeAns, QUESTION_BANK,
 } from "../data/gameData";
@@ -74,7 +74,7 @@ interface PendingEvolution {
   evolutions: { from: string; to: string; emoji: string; type: AlgemonType }[];
 }
 
-type Screen = "start" | "hub" | "gymSelect" | "shop" | "changeAlgemon"
+type Screen = "start" | "hub" | "gymSelect" | "gymCutscene" | "shop" | "changeAlgemon"
             | "status" | "library" | "evolution" | "battle" | "result";
 
 // ══════════════════════════════════════════════════════════════
@@ -204,6 +204,11 @@ export default function Game() {
   // Start form
   const [startName, setStartName] = useState("");
   const [startType, setStartType] = useState<AlgemonType | null>(null);
+  // Save code
+  const [saveCodeInput, setSaveCodeInput] = useState("");
+  const [saveCodeError, setSaveCodeError] = useState("");
+  // Gym cutscene
+  const [pendingGymId, setPendingGymId] = useState<number | null>(null);
   // Library
   const [libOpen, setLibOpen] = useState<number | null>(null);
 
@@ -219,6 +224,48 @@ export default function Game() {
     const typ   = act.baseType.toUpperCase().slice(0, 4);
     return `WSCSS-ALGE5-${typ}-LV${lv}-${act.xp}XP-${bdg}GYM-${e4}E4-${s.algecoins}AC`;
   }
+
+  function parseSaveCode(code: string, trainerName: string): PlayerStats | null {
+    try {
+      const parts = code.trim().toUpperCase().split("-");
+      if (parts.length < 8) return null;
+      if (parts[0] !== "WSCSS" || parts[1] !== "ALGE5") return null;
+      const typeMap: Partial<Record<string, AlgemonType>> = {
+        FIRE: "Fire", WATE: "Water", GRAS: "Grass", ICE: "Ice",
+        FLYI: "Flying", GROU: "Ground", FIGH: "Fighting", ELEC: "Electric",
+      };
+      const baseType = typeMap[parts[2]];
+      if (!baseType) return null;
+      const xp      = parseInt(parts[4].replace("XP", ""), 10);
+      const gymCnt  = parseInt(parts[5].replace("GYM", ""), 10);
+      const e4Cnt   = parseInt(parts[6].replace("E4", ""), 10);
+      const coins   = parseInt(parts[7].replace("AC", ""), 10);
+      if ([xp, gymCnt, e4Cnt, coins].some(isNaN)) return null;
+      return {
+        name: trainerName.trim() || "Trainer",
+        activeIndex: 0,
+        party: [{ baseType, color: TYPE_COLOR[baseType], xp: Math.max(0, Math.min(xp, XP_PER_LEVEL * MAX_LEVEL)) }],
+        algecoins: Math.max(0, Math.min(coins, 999999)),
+        gymBeaten: Array(8).fill(false).map((_, i) => i < Math.min(gymCnt, 8)) as boolean[],
+        eliteFourBeaten: Array(4).fill(false).map((_, i) => i < Math.min(e4Cnt, 4)) as boolean[],
+        inventory: { hints: 0, algaballs: 0, potions: 0 },
+        totalQuestions: 0, totalCorrect: 0,
+        caughtSpecies: [getSpeciesId(baseType, 0)],
+      };
+    } catch { return null; }
+  }
+
+  // Gym cutscene auto-start timer
+  useEffect(() => {
+    if (screen !== "gymCutscene" || pendingGymId === null) return;
+    const id = pendingGymId;
+    const timer = setTimeout(() => {
+      setPendingGymId(null);
+      startGymBattle(id);
+    }, 3000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, pendingGymId]);
 
   function pickQuestion(c: BattleCtx): MCQuestion {
     if (c.mode === "elite") return pickRandom(ELITE_FOUR[c.eliteId!].questions);
@@ -260,12 +307,14 @@ export default function Game() {
     const act   = active(stats);
     const topic = TYPE_TOPIC[act.baseType];
     const enemy = WILD_ENEMY[act.baseType];
+    const maxLv = Math.max(...stats.party.map(p => xpToLevel(p.xp)));
+    const foeLv = Math.max(1, maxLv + Math.floor(Math.random() * 5) - 2);
     launchBattle({
       mode: "wild", topic, speciesId: enemy.speciesId,
       enemyName: enemy.name, enemyColor: enemy.color, enemyEmoji: enemy.emoji,
       enemyType: enemy.catchType, enemyStage: 0,
+      foeLv,
       xpReward: XP_PER_CORRECT_WILD, coinReward: WILD_WIN_COINS, badgeReward: false, catchType: enemy.catchType,
-      // foeLv undefined → uses player level dynamically
     }, stats);
   }
 
@@ -389,7 +438,10 @@ export default function Game() {
         addLog(`${ctx.enemyName} fainted!`);
         applyVictory(false, newCount, stats, newEnemyHp);
       } else {
-        if (newEnemyHp < ENEMY_MAX_HP * CATCH_HP_PCT) addLog(`${ctx.enemyName} is weakened! Try to CATCH it!`);
+        if (ctx.mode === "wild" && newEnemyHp < ENEMY_MAX_HP * 0.5) {
+          const catchPct = Math.round((1 - newEnemyHp / ENEMY_MAX_HP) * CATCH_MODIFIER * 100);
+          addLog(`${ctx.enemyName} is weakened! ⭕ Ball catch chance: ~${catchPct}%`);
+        }
         setTimeout(nextQuestion, 1500);
       }
     } else {
@@ -432,25 +484,21 @@ export default function Game() {
       setShowBag(false);
       return;
     }
-    // Consume the ball regardless of outcome
+    const catchChance = (1 - enemyHp / ENEMY_MAX_HP) * CATCH_MODIFIER;
+    const pct = Math.round(catchChance * 100);
     setStats(s => s ? { ...s, inventory: { ...s.inventory, algaballs: s.inventory.algaballs - 1 } } : s);
     setShowBag(false);
-
-    if (enemyHp >= ENEMY_MAX_HP * CATCH_HP_PCT) {
-      addLog(`${ctx.enemyName} shrugged off the ball! Weaken it below ${Math.round(CATCH_HP_PCT * 100)}% HP first.`);
-      return;
-    }
-
-    // HP low enough — trigger short-answer catch question
-    const saPool = QUESTION_BANK[ctx.topic].sa.length > 0
-      ? QUESTION_BANK[ctx.topic].sa
-      : (ALGE_DB[ctx.topic].shortAnswer as SAQuestion[]);
-    const saq = pickRandom(saPool);
-    setCatchQ(saq);
-    setCatchMode(true);
-    setCatchInput("");
-    setCatchDone(false);
-    addLog(`Algaball out! Answer correctly to catch ${ctx.enemyName}!`);
+    addLog(`⭕ Algaball thrown! Catch chance: ~${pct}%…`);
+    const snapStats = stats;
+    const snapEnemyHp = enemyHp;
+    setTimeout(() => {
+      if (Math.random() < catchChance) {
+        addLog(`🎉 Gotcha! ${ctx!.enemyName} was caught!`);
+        setTimeout(() => applyVictory(true, 0, snapStats, snapEnemyHp), 700);
+      } else {
+        addLog(`💨 Oh no! ${ctx!.enemyName} broke free! (${pct}% wasn't enough)`);
+      }
+    }, 1000);
   }
 
   // ── Potion (no turn consumed) ────────────────────────────────
@@ -476,7 +524,7 @@ export default function Game() {
     }
   }
 
-  const canCatch   = (hp: number) => hp > 0 && hp < ENEMY_MAX_HP * CATCH_HP_PCT;
+  const canCatch   = (hp: number) => hp > 0;
   const canUseHint = (s: PlayerStats) => xpToLevel(s.party[s.activeIndex].xp) >= HINT_MIN_LEVEL || s.inventory.hints > 0;
 
   const wrap: React.CSSProperties = {
@@ -538,12 +586,59 @@ export default function Game() {
             style={{ ...(!startName.trim() || !startType ? btnDisabled : btnDark), width: "100%", padding: "11px 0", fontSize: 14 }}>
             ▶ BEGIN ADVENTURE
           </button>
+          <div style={{ marginTop: 14, borderTop: `2px solid ${P.border}`, paddingTop: 12 }}>
+            <div style={{ fontSize: 10, color: P.light, marginBottom: 5, fontWeight: "bold" }}>📖 CONTINUE WITH SAVE CODE</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                value={saveCodeInput}
+                onChange={e => { setSaveCodeInput(e.target.value); setSaveCodeError(""); }}
+                placeholder="WSCSS-ALGE5-FIRE-..."
+                style={{ flex: 1, background: P.darkBg, border: `2px solid ${P.border}`, color: P.light, padding: "6px 8px", fontSize: 10, fontFamily: "monospace", borderRadius: 3, outline: "none" }}
+              />
+              <button onClick={() => {
+                const parsed = parseSaveCode(saveCodeInput, startName);
+                if (!parsed) { setSaveCodeError("Invalid save code — check it and try again."); return; }
+                setStats(parsed);
+                setScreen("hub");
+              }} style={{ ...btnDark, padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>
+                LOAD
+              </button>
+            </div>
+            {saveCodeError && <div style={{ color: "#ef9a9a", fontSize: 10, marginTop: 5 }}>{saveCodeError}</div>}
+            <div style={{ fontSize: 9, color: "#666", marginTop: 4 }}>Trainer name is optional when loading a code.</div>
+          </div>
         </Card>
       </div>
     );
   }
 
   if (!stats) return null;
+
+  // ── Gym cutscene overlay ─────────────────────────────────────
+  if (screen === "gymCutscene" && pendingGymId !== null) {
+    const gym = GYM_DATA[pendingGymId];
+    return (
+      <div style={{ ...wrap, alignItems: "center", justifyContent: "center", background: "#0a0f0a" }}>
+        <div style={{ textAlign: "center", color: "#fff", padding: "0 20px", maxWidth: 340 }}>
+          <div style={{ fontSize: 56, marginBottom: 16, animation: "bounce 0.8s infinite alternate" }}>{gym.enemyEmoji}</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, color: "#9bbc0f", fontWeight: "bold", marginBottom: 8 }}>
+            ⚔️ GYM {pendingGymId + 1} BATTLE ⚔️
+          </div>
+          <div style={{ fontSize: 20, fontWeight: "bold", color: "#ffd54f", marginBottom: 6, fontFamily: "monospace" }}>
+            {gym.gymName}
+          </div>
+          <div style={{ fontSize: 13, color: "#a5d6a7", marginBottom: 4 }}>{gym.locationName}</div>
+          <div style={{ fontSize: 13, color: "#e8f5e9", marginBottom: 12 }}>
+            <b>{gym.leaderName}</b> challenges you to a battle!
+          </div>
+          <div style={{ fontSize: 11, color: "#888", marginBottom: 20 }}>
+            Topic: {ALGE_DB[gym.topic].topicName} &nbsp;|&nbsp; Foe Lv {gym.foeLevel}
+          </div>
+          <div style={{ fontSize: 11, color: "#555", letterSpacing: 2 }}>loading…</div>
+        </div>
+      </div>
+    );
+  }
 
   const act     = active(stats);
   const lv      = xpToLevel(act.xp);   // per-Algemon level
@@ -665,7 +760,7 @@ export default function Game() {
               const unlocked = i === 0 || stats.gymBeaten[i - 1];
               const isNext   = i === firstUnbeaten;
               return (
-                <button key={i} onClick={() => { if (unlocked && !beaten) { setScreen("hub"); startGymBattle(i); } }}
+                <button key={i} onClick={() => { if (unlocked && !beaten) { setLastResult(null); setPendingGymId(i); setScreen("gymCutscene"); } }}
                   style={{ ...btnBase, textAlign: "left", padding: "8px 11px", fontSize: 11, lineHeight: 1.7, background: beaten ? "#4a6141" : unlocked && isNext ? P.darkBg : "#555", color: beaten ? "#a0d878" : unlocked ? "#fff" : "#888", cursor: unlocked && !beaten ? "pointer" : "not-allowed", boxShadow: beaten || !unlocked ? "none" : `3px 3px 0 ${P.border}` }}>
                   <div>{beaten ? "✅" : unlocked ? gym.enemyEmoji : "🔒"} <b>GYM {i + 1}:</b> {gym.locationName} — {gym.gymName}</div>
                   <div style={{ fontSize: 10, color: beaten ? "#a0d878" : unlocked ? "#c0e08a" : "#666" }}>
@@ -760,7 +855,7 @@ export default function Game() {
     const inv = stats.inventory;
     const shopItems = [
       { icon: "💡", name: "Hint Tool",  desc: "Reveals a topic hint in battle. Free at Level 5+.", cost: HINT_TOOL_COST, own: inv.hints,     key: "hints"     as const },
-      { icon: "⭕", name: "Algaball",  desc: `Throw in Wild battle. Triggers a Catch Question when foe HP < ${Math.round(CATCH_HP_PCT * 100)}%. Answer correctly = catch!`, cost: ALGEBALL_COST, own: inv.algaballs, key: "algaballs" as const },
+      { icon: "⭕", name: "Algaball",  desc: `Throw in Wild battle. Catch chance = (1 − foe HP%) × 85%. Weaken the foe for the best odds!`, cost: ALGEBALL_COST, own: inv.algaballs, key: "algaballs" as const },
       { icon: "🧪", name: "Potion",    desc: `Restores ${POTION_HEAL} HP. Does NOT consume your turn.`,                     cost: POTION_COST,   own: inv.potions,   key: "potions"   as const },
     ];
     return (
@@ -1008,7 +1103,8 @@ export default function Game() {
     const foeLvShow  = ctx.foeLv ?? lv;
     const inv        = stats.inventory;
     const hasBagItems = inv.algaballs > 0 || inv.potions > 0;
-    const algaballReady = canCatch(enemyHp) && ctx.mode === "wild";
+    const algaballReady = enemyHp > 0 && ctx.mode === "wild";
+    const algaballPct   = Math.round((1 - enemyHp / ENEMY_MAX_HP) * CATCH_MODIFIER * 100);
 
     return (
       <div style={wrap}>
@@ -1065,10 +1161,10 @@ export default function Game() {
                 <div style={{ flex: 1, textAlign: "center" }}>
                   <div style={{ color: "#fff", fontSize: 11 }}>⭕ Algaball ×{inv.algaballs}</div>
                   <div style={{ fontSize: 10, color: algaballReady ? "#a5d6a7" : "#b0bec5", marginBottom: 4 }}>
-                    {enemyHp <= 0 ? "enemy fainted" : ctx.mode !== "wild" ? "wild only" : algaballReady ? "✓ Ready! Triggers catch Q!" : `Weaken to <${Math.round(CATCH_HP_PCT * 100)}% HP`}
+                    {enemyHp <= 0 ? "enemy fainted" : ctx.mode !== "wild" ? "wild only" : `Catch chance: ~${algaballPct}%`}
                   </div>
                   <button onClick={useAlgaball} disabled={inv.algaballs < 1 || enemyHp <= 0}
-                    style={{ ...(inv.algaballs < 1 || enemyHp <= 0 ? btnDisabled : algaballReady ? { ...btnBase, background: "#00897b", color: "#fff" } : { ...btnBase, background: P.red, color: "#fff" }), fontSize: 10, padding: "4px 10px" }}>
+                    style={{ ...(inv.algaballs < 1 || enemyHp <= 0 ? btnDisabled : { ...btnBase, background: algaballPct >= 40 ? "#00897b" : "#c17f24", color: "#fff" }), fontSize: 10, padding: "4px 10px" }}>
                     THROW
                   </button>
                 </div>
