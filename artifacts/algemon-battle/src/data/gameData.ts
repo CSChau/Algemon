@@ -381,21 +381,36 @@ export const QUESTION_BANK: Record<TopicKey, { mc: MCQuestion[]; sa: SAQuestion[
   },
   coordinates: {
     mc: [
-      { text: "Simplify: $\\frac{x^2-4}{x+2}$.", options: ["$x-2$","$x+2$","$(x-2)^2$","$x^2-2$"], correct: 0, hint: "Factor numerator: $(x-2)(x+2)$. Cancel $(x+2)$: result is $x-2$." },
-      { text: "Simplify: $\\frac{6x^2}{2x}$.", options: ["$3x$","$3$","$6x$","$\\frac{3}{x}$"], correct: 0, hint: "$\\frac{6x^2}{2x}=\\frac{6}{2}\\cdot\\frac{x^2}{x}=3x$." },
-      { text: "Add: $\\frac{1}{x}+\\frac{2}{x}$.", options: ["$\\frac{3}{x}$","$\\frac{3}{x^2}$","$\\frac{1}{x^2}$","$3x$"], correct: 0, hint: "Same denominator; add numerators: $\\frac{1+2}{x}=\\frac{3}{x}$." },
-      { text: "Add: $\\frac{1}{x}+\\frac{1}{y}$.", options: ["$\\frac{x+y}{xy}$","$\\frac{2}{x+y}$","$\\frac{1}{x+y}$","$\\frac{xy}{x+y}$"], correct: 0, hint: "LCD is $xy$: $\\frac{y+x}{xy}=\\frac{x+y}{xy}$." },
-      { text: "Simplify: $\\frac{x^2-1}{x^2-x}$.", options: ["$\\frac{x+1}{x}$","$\\frac{x-1}{x}$","$x+1$","$\\frac{1}{x}$"], correct: 0, hint: "Factor: $\\frac{(x-1)(x+1)}{x(x-1)}=\\frac{x+1}{x}$." },
-      { text: "Subtract: $\\frac{3}{x}-\\frac{1}{2x}$.", options: ["$\\frac{5}{2x}$","$\\frac{2}{x}$","$\\frac{1}{x}$","$\\frac{4}{2x^2}$"], correct: 0, hint: "LCD is $2x$: $\\frac{6-1}{2x}=\\frac{5}{2x}$." },
-      { text: "Multiply: $\\frac{x}{3}\\times\\frac{9}{x^2}$.", options: ["$\\frac{3}{x}$","$\\frac{9}{3x}$","$\\frac{x^2}{3}$","$\\frac{1}{3x}$"], correct: 0, hint: "$\\frac{9x}{3x^2}=\\frac{3}{x}$." },
-      { text: "Divide: $\\frac{x}{4}\\div\\frac{x^2}{8}$.", options: ["$\\frac{2}{x}$","$\\frac{x}{2}$","$\\frac{8}{4x}$","$\\frac{4}{x^2}$"], correct: 0, hint: "Flip and multiply: $\\frac{x}{4}\\times\\frac{8}{x^2}=\\frac{2}{x}$." },
-      { text: "Simplify: $\\frac{2x+4}{x+2}$.", options: ["$2$","$x+2$","$\\frac{2}{x}$","$2x$"], correct: 0, hint: "Factor numerator: $2(x+2)$. Cancel: $\\frac{2(x+2)}{x+2}=2$." },
-      { text: "Solve: $\\frac{x}{2}=3$.", options: ["$6$","$\\frac{3}{2}$","$\\frac{1}{6}$","$\\frac{2}{3}$"], correct: 0, hint: "Multiply both sides by 2: $x=6$." },
-      { text: "Simplify: $\\frac{x}{x+1}+\\frac{1}{x+1}$.", options: ["$1$","$\\frac{x+1}{x}$","$\\frac{x}{x+1}$","$\\frac{2x+1}{x+1}$"], correct: 0, hint: "Same denominator: $\\frac{x+1}{x+1}=1$." },
-      { text: "Simplify: $\\frac{x^2-9}{x-3}$.", options: ["$x+3$","$x-3$","$x^2+3$","$\\frac{x+3}{x-3}$"], correct: 0, hint: "Factor: $(x-3)(x+3)$. Cancel $(x-3)$: result is $x+3$." },
-      { text: "Solve: $\\frac{2}{x}=\\frac{1}{3}$.", options: ["$6$","$\\frac{1}{6}$","$\\frac{2}{3}$","$3$"], correct: 0, hint: "Cross-multiply: $6=x$." },
-      { text: "Simplify: $\\frac{x^2+3x}{x}$.", options: ["$x+3$","$x^2+3$","$3$","$x+3x$"], correct: 0, hint: "Factor $x$ from numerator: $\\frac{x(x+3)}{x}=x+3$." },
-      { text: "Add: $\\frac{2}{x-1}+\\frac{3}{x+1}$.", options: ["$\\frac{5x-1}{x^2-1}$","$\\frac{5}{x^2-1}$","$\\frac{5x+1}{x^2-1}$","$\\frac{2x+5}{x^2-1}$"], correct: 0, hint: "LCD=$(x-1)(x+1)=x^2-1$. Numerator: $2(x+1)+3(x-1)=5x-1$." },
+      // Based on HKDSE 2012 MII Q.5
+      { text: "Simplify $\\frac{1}{x-1} - \\frac{1}{x+1}$.", options: ["$\\frac{2}{x^2-1}$","$\\frac{2x}{x^2-1}$","$\\frac{2}{1-x^2}$","$\\frac{2x}{1-x^2}$"], correct: 0, hint: "Common denominator is $(x-1)(x+1)=x^2-1$. Numerator: $(x+1)-(x-1)=2$." },
+      // Based on HKDSE 2014 MII Q.4
+      { text: "$\\frac{1}{2x-7} + \\frac{1}{2x+7} = $", options: ["$\\frac{4x}{4x^2-49}$","$\\frac{14}{4x^2-49}$","$\\frac{4x}{49-4x^2}$","$\\frac{1}{2x}$"], correct: 0, hint: "LCD is $(2x-7)(2x+7)=4x^2-49$. Numerator: $(2x+7)+(2x-7)=4x$." },
+      // Based on HKDSE 2015 MII Q.4
+      { text: "$\\frac{u}{v} + \\frac{v}{u} - 2 = $", options: ["$\\frac{(u-v)^2}{uv}$","$\\frac{u^2+v^2}{uv}$","$\\frac{(u+v)^2}{uv}$","$0$"], correct: 0, hint: "LCD is $uv$. Numerator: $u^2+v^2-2uv=(u-v)^2$." },
+      // Based on HKCEE 2004 MII Q.4
+      { text: "Simplify $\\frac{2}{x^2-1} - \\frac{1}{x-1}$.", options: ["$\\frac{1-x}{x^2-1}$","$\\frac{1}{x+1}$","$\\frac{-1}{x+1}$","$\\frac{3-x}{x^2-1}$"], correct: 2, hint: "Factorize $x^2-1=(x-1)(x+1)$. After common denom: $\\frac{2-(x+1)}{x^2-1}=\\frac{1-x}{x^2-1}=\\frac{-(x-1)}{(x-1)(x+1)}=\\frac{-1}{x+1}$." },
+      // Division trap
+      { text: "Simplify $\\frac{3}{x} \\div \\frac{6}{x^2}$.", options: ["$\\frac{x}{2}$","$\\frac{2}{x}$","$\\frac{18}{x^3}$","$\\frac{x^2}{2}$"], correct: 0, hint: "Divide = multiply by reciprocal: $\\frac{3}{x}\\times\\frac{x^2}{6}=\\frac{3x^2}{6x}=\\frac{x}{2}$." },
+      // HKDSE 2016 style
+      { text: "Simplify $\\frac{a}{b-a} + \\frac{b}{a-b}$.", options: ["$1$","$-1$","$\\frac{a-b}{b-a}$","$\\frac{a+b}{a-b}$"], correct: 1, hint: "Note $a-b=-(b-a)$. So $\\frac{b}{a-b}=\\frac{-b}{b-a}$. Sum: $\\frac{a-b}{b-a}=\\frac{-(b-a)}{b-a}=-1$." },
+      // HKDSE 2018 style
+      { text: "$\\frac{x+1}{x} - \\frac{x}{x+1} = $", options: ["$\\frac{2x+1}{x(x+1)}$","$\\frac{1}{x(x+1)}$","$\\frac{(x+1)^2-x^2}{x(x+1)}$","$\\frac{2x^2+2x+1}{x(x+1)}$"], correct: 0, hint: "LCD $=x(x+1)$. Numerator: $(x+1)^2-x^2=x^2+2x+1-x^2=2x+1$." },
+      // Difference of squares factoring
+      { text: "Simplify $\\frac{x^2-4}{x^2-4x+4}$.", options: ["$\\frac{x+2}{x-2}$","$\\frac{x-2}{x+2}$","$x+2$","$x-2$"], correct: 0, hint: "Factor: $\\frac{(x-2)(x+2)}{(x-2)^2}=\\frac{x+2}{x-2}$." },
+      // HKDSE 2013 style: complex numerator
+      { text: "Simplify $\\frac{3}{x+2} - \\frac{2}{x-2}$.", options: ["$\\frac{x-10}{x^2-4}$","$\\frac{5x-2}{x^2-4}$","$\\frac{x+10}{x^2-4}$","$\\frac{1}{x^2-4}$"], correct: 0, hint: "LCD$=(x+2)(x-2)=x^2-4$. Numerator: $3(x-2)-2(x+2)=3x-6-2x-4=x-10$." },
+      // HKCEE 2006 style
+      { text: "If $\\frac{2}{x} + \\frac{3}{y} = 1$, express $y$ in terms of $x$.", options: ["$y=\\frac{3x}{x-2}$","$y=\\frac{3x}{2-x}$","$y=\\frac{x-2}{3x}$","$y=3x-2$"], correct: 0, hint: "$\\frac{3}{y}=1-\\frac{2}{x}=\\frac{x-2}{x}$, so $y=\\frac{3x}{x-2}$." },
+      // HKDSE 2017 style: product
+      { text: "Simplify $\\frac{x^2-9}{x^2+x-6}$.", options: ["$\\frac{x+3}{x+2}$","$\\frac{x-3}{x-2}$","$\\frac{x+3}{x-2}$","$\\frac{x-3}{x+2}$"], correct: 0, hint: "Factor: $\\frac{(x-3)(x+3)}{(x-3)(x+2)}=\\frac{x+3}{x+2}$." },
+      // HKCEE 2008 style
+      { text: "$\\frac{1}{x+h} - \\frac{1}{x}$ simplifies to:", options: ["$\\frac{-h}{x(x+h)}$","$\\frac{h}{x(x+h)}$","$\\frac{1}{h}$","$\\frac{-1}{x^2}$"], correct: 0, hint: "LCD$=x(x+h)$. Numerator: $x-(x+h)=-h$. Result: $\\frac{-h}{x(x+h)}$." },
+      // Compound fractions
+      { text: "Simplify $\\dfrac{\\frac{1}{x}-\\frac{1}{y}}{\\frac{1}{x}+\\frac{1}{y}}$.", options: ["$\\frac{y-x}{y+x}$","$\\frac{x-y}{x+y}$","$\\frac{y-x}{x+y}$","$\\frac{x+y}{y-x}$"], correct: 0, hint: "Numerator $=\\frac{y-x}{xy}$, denominator $=\\frac{y+x}{xy}$. Divide: $\\frac{y-x}{xy}\\times\\frac{xy}{y+x}=\\frac{y-x}{y+x}$." },
+      // HKDSE 2019 style
+      { text: "Simplify $\\frac{4x^2-1}{2x^2+x}$.", options: ["$\\frac{2x-1}{x}$","$\\frac{2x+1}{x}$","$\\frac{4x-2}{x}$","$2$"], correct: 0, hint: "Factor: $\\frac{(2x-1)(2x+1)}{x(2x+1)}=\\frac{2x-1}{x}$." },
+      // Mixed operations
+      { text: "$\\frac{a+b}{ab} - \\frac{a-b}{ab} = $", options: ["$\\frac{2b}{ab}$","$\\frac{2}{b}$","$\\frac{2}{a}$","$\\frac{a+b}{ab}$"], correct: 2, hint: "Same denominator $ab$. Numerator: $(a+b)-(a-b)=2b$. So $\\frac{2b}{ab}=\\frac{2}{a}$." },
     ],
     sa: [],
   },

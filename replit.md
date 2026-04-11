@@ -28,13 +28,13 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## Artifacts
 
-### WSCSS Algemon – Math Battle v5.0 (`artifacts/algemon-battle`)
+### WSCSS Algemon – Math Battle v6.0 (`artifacts/algemon-battle`)
 - Preview path: `/`
 - Pure React + Vite (no backend, no database)
 - Full game loop: Start → Hub → Battle → Result → (Evolution) → Hub
 - Data layer: `src/data/gameData.ts` (ALGE_DB 10 topics, GYM_DATA 8 gyms, EVOLUTION_DATA, SPECIES_LIST 24)
 - Main game: `src/pages/Game.tsx` (all screens + state)
-- Screens: start, hub, gymSelect, shop, changeAlgemon, status, library, evolution, battle, result
+- Screens: start, hub, gymSelect, gymCutscene, algeBox, shop, changeAlgemon, status, library, evolution, battle, result
 - Features:
   - 8-type registry: Fire/Water/Grass/Ice/Flying/Ground/Fighting/Electric
   - 24-species Algemon Dex: each type has 3 evolution stages (Stage 0→11→21)
@@ -43,15 +43,19 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
   - Dynamic damage: BASE_DAMAGE=34; playerDmg = 34×(playerLv/foeLv); at equal levels 2 hits → 32% HP
   - Defense bonus: Stage 1 = 10% damage reduction; Stage 2 = 20%
   - **Per-Algemon leveling**: each PartyMember has its own `xp` field; active battler earns XP on victory; evolution (Lv 11/21) is per-Algemon
-  - Wild battles: foeLv = activeAlgemon.lv (balanced); 50 XP/correct answer
-  - 8 Gyms with fixed foeLevels (4→6→8→10→12→14→17→20); 100 XP/correct
+  - **Wild battles**: foe Lv = activeLv−1 to activeLv−3 (min 1); topic = next gym's type if gymsBeaten<8, else random for Elite prep
+  - 8 Gyms with fixed foeLevels (4→6→8→10→12→14→17→20); 100 XP/correct; gym cutscene (3s overlay)
   - Elite Four (unlock after 8 badges); foeLevels 22→24→26→28; 150 XP/correct
   - XP level cap: 30; evolution triggers at Level 11 (Stage 1) and Level 21 (Stage 2)
   - Evolution screen shown post-battle when active Algemon crosses stage threshold
-  - Party system up to 6; each member has baseType + xp + color
-  - **QUESTION_BANK**: centralized `QUESTION_BANK` constant in gameData.ts; each topic has `mc[]` (battle MC questions) and `sa[]` (catch SA questions); engine falls back to ALGE_DB if empty — paste custom HKDSE questions here
-  - **Algaball catch mechanic**: no dedicated CATCH button; throw Algaball from bag at <30% HP → triggers short-answer question; correct = catch; ball consumed regardless
-  - Status screen: accuracy %, Dex collection 24/24, "Active XP" for current Algemon, save code
+  - **Party system**: up to 6; each member has baseType + xp + color
+  - **Alge-Box PC Storage**: unlimited storage; full PC swap interface (→BOX/→PTY); caught Algemon sent to box when party is full
+  - **Anti-repeat questions**: `usedQuestions: Record<TopicKey, number[]>` tracks used indices per topic; resets when topic bank exhausted (full cycle)
+  - **QUESTION_BANK**: 15 MC questions per topic (15 per topic × 10 topics; `coordinates` = 15 algebraic fractions questions from HKDSE/HKCEE); falls back to ALGE_DB if empty
+  - **Save Code v6**: `WSCSS-V6-<base64>` encodes full state: party, box, gym progress, inventory, dex, usedQuestions; backward compat with legacy ALGE5 format
+  - **Algaball catch mechanic**: probability-based catch ((1−foHP%)×0.85); color-coded button; no SA question
+  - Status screen: accuracy %, Dex collection 24/24, "Active XP" for current Algemon, v6 save code
   - Alge-Library: 10 study topics with formulas + HKDSE traps
   - Economy: Tuck Shop sells Hints (50AC), Algaballs (50AC), Potions (30AC)
-  - 10 topics: factorization, changeOfSubject, inequalities, indices, simultaneous, polynomials, quadratic, functions, coordinates, ratios
+  - 10 topics: factorization, changeOfSubject, inequalities, indices, simultaneous, polynomials, quadratic, functions, coordinates (Algebraic Fractions), ratios
+  - Ground type = "Algebraic Fractions" topic (coordinates key internally)

@@ -33,7 +33,8 @@ interface ShuffledQ {
 interface PlayerStats {
   name:             string;
   activeIndex:      number;
-  party:            PartyMember[];   // XP lives on each member; no global xp
+  party:            PartyMember[];   // XP lives on each member; no global xp (max 6)
+  box:              PartyMember[];   // Alge-Box PC storage — unlimited
   algecoins:        number;
   gymBeaten:        boolean[];
   eliteFourBeaten:  boolean[];
@@ -41,6 +42,7 @@ interface PlayerStats {
   totalQuestions:   number;
   totalCorrect:     number;
   caughtSpecies:    string[];
+  usedQuestions:    Record<string, number[]>;  // topic → used indices (anti-repeat)
 }
 
 interface BattleCtx {
@@ -65,7 +67,7 @@ interface BattleResult {
   won: boolean; caught: boolean; xpGained: number;
   coinsGained: number; badgeEarned: boolean;
   gymId?: number; eliteId?: number; newLv?: number;
-  speciesName?: string;
+  speciesName?: string; sentToBox?: boolean;
 }
 
 interface PendingEvolution {
@@ -74,7 +76,7 @@ interface PendingEvolution {
   evolutions: { from: string; to: string; emoji: string; type: AlgemonType }[];
 }
 
-type Screen = "start" | "hub" | "gymSelect" | "gymCutscene" | "shop" | "changeAlgemon"
+type Screen = "start" | "hub" | "gymSelect" | "gymCutscene" | "algeBox" | "shop" | "changeAlgemon"
             | "status" | "library" | "evolution" | "battle" | "result";
 
 // ══════════════════════════════════════════════════════════════
@@ -211,46 +213,96 @@ export default function Game() {
   const [pendingGymId, setPendingGymId] = useState<number | null>(null);
   // Library
   const [libOpen, setLibOpen] = useState<number | null>(null);
+  // Alge-Box swap selection
+  const [swapSrc, setSwapSrc] = useState<{ kind: "box" | "party"; idx: number } | null>(null);
 
   const addLog = (msg: string) => setLog(prev => [...prev.slice(-40), msg]);
 
   const active = (s: PlayerStats) => s.party[s.activeIndex];
 
+  // ── Save / Load (v6 — full state via btoa/JSON) ─────────────
   function buildSaveCode(s: PlayerStats): string {
-    const act   = active(s);
-    const lv    = xpToLevel(act.xp);
-    const bdg   = s.gymBeaten.filter(Boolean).length;
-    const e4    = s.eliteFourBeaten.filter(Boolean).length;
-    const typ   = act.baseType.toUpperCase().slice(0, 4);
-    return `WSCSS-ALGE5-${typ}-LV${lv}-${act.xp}XP-${bdg}GYM-${e4}E4-${s.algecoins}AC`;
+    const fixM = (m: PartyMember) => [m.baseType, m.xp] as [string, number];
+    const data = {
+      v: 6,
+      nm:  s.name,
+      ai:  s.activeIndex,
+      p:   s.party.map(fixM),
+      b:   s.box.map(fixM),
+      ac:  s.algecoins,
+      gym: s.gymBeaten,
+      e4:  s.eliteFourBeaten,
+      inv: [s.inventory.hints, s.inventory.algaballs, s.inventory.potions],
+      tq:  s.totalQuestions,
+      tc:  s.totalCorrect,
+      cs:  s.caughtSpecies,
+      uq:  s.usedQuestions,
+    };
+    return `WSCSS-V6-${btoa(JSON.stringify(data))}`;
   }
 
   function parseSaveCode(code: string, trainerName: string): PlayerStats | null {
+    const fixMember = ([t, xp]: [string, number]): PartyMember => ({
+      baseType: t as AlgemonType,
+      color: TYPE_COLOR[t as AlgemonType] ?? "#888",
+      xp: Math.max(0, Math.min(Number(xp), XP_PER_LEVEL * MAX_LEVEL)),
+    });
     try {
-      const parts = code.trim().toUpperCase().split("-");
-      if (parts.length < 8) return null;
-      if (parts[0] !== "WSCSS" || parts[1] !== "ALGE5") return null;
+      const trimmed = code.trim();
+
+      // ── V6 format: WSCSS-V6-<base64> ───────────────────────
+      if (trimmed.startsWith("WSCSS-V6-")) {
+        const raw  = atob(trimmed.slice(9));
+        const d    = JSON.parse(raw);
+        if (d.v !== 6 || !Array.isArray(d.p) || d.p.length === 0) return null;
+        const party = (d.p as [string, number][]).map(fixMember);
+        const ai    = Math.min(Math.max(0, d.ai ?? 0), party.length - 1);
+        return {
+          name:            d.nm || trainerName.trim() || "Trainer",
+          activeIndex:     ai,
+          party,
+          box:             (d.b as [string, number][] ?? []).map(fixMember),
+          algecoins:       Math.max(0, Math.min(d.ac ?? 0, 999999)),
+          gymBeaten:       (d.gym ?? Array(8).fill(false)).slice(0, 8) as boolean[],
+          eliteFourBeaten: (d.e4  ?? Array(4).fill(false)).slice(0, 4) as boolean[],
+          inventory: {
+            hints:     d.inv?.[0] ?? 0,
+            algaballs: d.inv?.[1] ?? 0,
+            potions:   d.inv?.[2] ?? 0,
+          },
+          totalQuestions: d.tq ?? 0,
+          totalCorrect:   d.tc ?? 0,
+          caughtSpecies:  d.cs ?? [],
+          usedQuestions:  d.uq ?? {},
+        };
+      }
+
+      // ── Legacy V5 format: WSCSS-ALGE5-TYPE-LVn-nXP-nGYM-nE4-nAC ──
+      const parts = trimmed.toUpperCase().split("-");
+      if (parts.length < 8 || parts[0] !== "WSCSS" || parts[1] !== "ALGE5") return null;
       const typeMap: Partial<Record<string, AlgemonType>> = {
         FIRE: "Fire", WATE: "Water", GRAS: "Grass", ICE: "Ice",
         FLYI: "Flying", GROU: "Ground", FIGH: "Fighting", ELEC: "Electric",
       };
       const baseType = typeMap[parts[2]];
       if (!baseType) return null;
-      const xp      = parseInt(parts[4].replace("XP", ""), 10);
-      const gymCnt  = parseInt(parts[5].replace("GYM", ""), 10);
-      const e4Cnt   = parseInt(parts[6].replace("E4", ""), 10);
-      const coins   = parseInt(parts[7].replace("AC", ""), 10);
+      const xp     = parseInt(parts[4].replace("XP", ""), 10);
+      const gymCnt = parseInt(parts[5].replace("GYM", ""), 10);
+      const e4Cnt  = parseInt(parts[6].replace("E4", ""), 10);
+      const coins  = parseInt(parts[7].replace("AC", ""), 10);
       if ([xp, gymCnt, e4Cnt, coins].some(isNaN)) return null;
       return {
         name: trainerName.trim() || "Trainer",
         activeIndex: 0,
-        party: [{ baseType, color: TYPE_COLOR[baseType], xp: Math.max(0, Math.min(xp, XP_PER_LEVEL * MAX_LEVEL)) }],
+        party: [fixMember([baseType, xp])],
+        box: [],
         algecoins: Math.max(0, Math.min(coins, 999999)),
-        gymBeaten: Array(8).fill(false).map((_, i) => i < Math.min(gymCnt, 8)) as boolean[],
-        eliteFourBeaten: Array(4).fill(false).map((_, i) => i < Math.min(e4Cnt, 4)) as boolean[],
-        inventory: { hints: 0, algaballs: 0, potions: 0 },
-        totalQuestions: 0, totalCorrect: 0,
-        caughtSpecies: [getSpeciesId(baseType, 0)],
+        gymBeaten:        Array(8).fill(false).map((_, i) => i < Math.min(gymCnt, 8)) as boolean[],
+        eliteFourBeaten:  Array(4).fill(false).map((_, i) => i < Math.min(e4Cnt, 4)) as boolean[],
+        inventory:        { hints: 0, algaballs: 0, potions: 0 },
+        totalQuestions:   0, totalCorrect: 0,
+        caughtSpecies:    [getSpeciesId(baseType, 0)],
+        usedQuestions:    {},
       };
     } catch { return null; }
   }
@@ -267,15 +319,36 @@ export default function Game() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, pendingGymId]);
 
+  // ── Anti-repeat question picker ──────────────────────────────
   function pickQuestion(c: BattleCtx): MCQuestion {
     if (c.mode === "elite") return pickRandom(ELITE_FOUR[c.eliteId!].questions);
-    // Use QUESTION_BANK first; fall back to built-in ALGE_DB if bank is empty
     const bankMc = QUESTION_BANK[c.topic].mc;
-    if (bankMc.length > 0) return pickRandom(bankMc);
-    const easy = ALGE_DB[c.topic].easy;
-    const hard = ALGE_DB[c.topic].hard;
-    const pool = c.mode === "wild" ? (easy.length > 0 ? easy : hard) : hard;
-    return pickRandom(pool);
+    if (bankMc.length === 0) {
+      // Fallback to ALGE_DB built-ins
+      const easy = ALGE_DB[c.topic].easy;
+      const hard = ALGE_DB[c.topic].hard;
+      const pool = c.mode === "wild" ? (easy.length > 0 ? easy : hard) : hard;
+      return pickRandom(pool);
+    }
+    // Find un-used indices for this topic
+    const used   = stats?.usedQuestions?.[c.topic] ?? [];
+    const unused = bankMc.map((_, i) => i).filter(i => !used.includes(i));
+    let idx: number;
+    if (unused.length === 0) {
+      // All exhausted → reset tracker and start fresh cycle
+      setStats(s => s ? { ...s, usedQuestions: { ...s.usedQuestions, [c.topic]: [] } } : s);
+      idx = Math.floor(Math.random() * bankMc.length);
+    } else {
+      idx = unused[Math.floor(Math.random() * unused.length)];
+      setStats(s => s ? {
+        ...s,
+        usedQuestions: {
+          ...s.usedQuestions,
+          [c.topic]: [...(s.usedQuestions?.[c.topic] ?? []), idx],
+        },
+      } : s);
+    }
+    return bankMc[idx];
   }
 
   // ── Launch a battle ─────────────────────────────────────────
@@ -304,11 +377,20 @@ export default function Game() {
 
   function startWildBattle() {
     if (!stats) return;
-    const act   = active(stats);
-    const topic = TYPE_TOPIC[act.baseType];
-    const enemy = WILD_ENEMY[act.baseType];
-    const maxLv = Math.max(...stats.party.map(p => xpToLevel(p.xp)));
-    const foeLv = Math.max(1, maxLv + Math.floor(Math.random() * 5) - 2);
+    const act    = active(stats);
+    const actLv  = xpToLevel(act.xp);
+    // Foe is 1–3 levels below the active Algemon (min level 1)
+    const foeLv  = Math.max(1, actLv - 1 - Math.floor(Math.random() * 3));
+    // Topic = next gym's type if gyms < 8; otherwise random from all 8
+    const gymsBeaten = stats.gymBeaten.filter(Boolean).length;
+    let wildType: AlgemonType;
+    if (gymsBeaten >= 8) {
+      wildType = ALGEMON_TYPES[Math.floor(Math.random() * ALGEMON_TYPES.length)];
+    } else {
+      wildType = GYM_DATA[gymsBeaten].catchType;
+    }
+    const topic = TYPE_TOPIC[wildType];
+    const enemy = WILD_ENEMY[wildType];
     launchBattle({
       mode: "wild", topic, speciesId: enemy.speciesId,
       enemyName: enemy.name, enemyColor: enemy.color, enemyEmoji: enemy.emoji,
@@ -369,12 +451,16 @@ export default function Game() {
     let newSpecies = [...st.caughtSpecies];
     if (caught && ctx.speciesId && !newSpecies.includes(ctx.speciesId)) newSpecies.push(ctx.speciesId);
 
-    // Update only the active member's XP; add caught Algemon if party has room
+    // Update only the active member's XP; add caught Algemon to party or box
     let newParty = st.party.map((m, i) =>
       i === activeIdx ? { ...m, xp: newXp } : m
     );
+    let newBox = [...st.box];
+    const caughtMember: PartyMember = { baseType: ctx.catchType, color: TYPE_COLOR[ctx.catchType], xp: 0 };
     if (caught && st.party.length < 6) {
-      newParty = [...newParty, { baseType: ctx.catchType, color: TYPE_COLOR[ctx.catchType], xp: 0 }];
+      newParty = [...newParty, caughtMember];
+    } else if (caught) {
+      newBox = [...newBox, caughtMember];
     }
 
     // Evolution check — only for the active member
@@ -399,15 +485,16 @@ export default function Game() {
       };
     }
 
-    setStats(s => s ? { ...s, algecoins: newCoins, gymBeaten: newGym, eliteFourBeaten: newElite, caughtSpecies: newSpecies, party: newParty } : s);
+    setStats(s => s ? { ...s, algecoins: newCoins, gymBeaten: newGym, eliteFourBeaten: newElite, caughtSpecies: newSpecies, party: newParty, box: newBox } : s);
     if (evoInfo) setPendingEvolution(evoInfo);
 
     const spName = SPECIES_LIST.find(sp => sp.id === ctx.speciesId)?.name;
+    const sentToBox = caught && st.party.length >= 6;
     setLastResult({
       won: true, caught, xpGained: xpGain, coinsGained: caught ? 0 : ctx.coinReward,
       badgeEarned: ctx.badgeReward && !caught,
       gymId: ctx.gymId, eliteId: ctx.eliteId,
-      newLv: newLv > prevLv ? newLv : undefined, speciesName: spName,
+      newLv: newLv > prevLv ? newLv : undefined, speciesName: spName, sentToBox,
     });
     setTimeout(() => setScreen("result"), 900);
   }
@@ -575,11 +662,13 @@ export default function Game() {
             setStats({
               name: startName.trim(), activeIndex: 0,
               party: [{ baseType: startType, color: TYPE_COLOR[startType], xp: 0 }],
+              box: [],
               algecoins: 0,
               gymBeaten: Array(8).fill(false), eliteFourBeaten: Array(4).fill(false),
               inventory: { hints: 0, algaballs: 0, potions: 0 },
               totalQuestions: 0, totalCorrect: 0,
               caughtSpecies: [getSpeciesId(startType, 0)],
+              usedQuestions: {},
             });
             setScreen("hub");
           }} disabled={!startName.trim() || !startType}
@@ -592,7 +681,7 @@ export default function Game() {
               <input
                 value={saveCodeInput}
                 onChange={e => { setSaveCodeInput(e.target.value); setSaveCodeError(""); }}
-                placeholder="WSCSS-ALGE5-FIRE-..."
+                placeholder="WSCSS-V6-eyJ2IjoG..."
                 style={{ flex: 1, background: P.darkBg, border: `2px solid ${P.border}`, color: P.light, padding: "6px 8px", fontSize: 10, fontFamily: "monospace", borderRadius: 3, outline: "none" }}
               />
               <button onClick={() => {
@@ -681,10 +770,14 @@ export default function Game() {
   if (screen === "hub") {
     const nextGym   = GYM_DATA.find((_, i) => !stats.gymBeaten[i]);
     const nextElite = allGyms ? ELITE_FOUR.find((_, i) => !stats.eliteFourBeaten[i]) : null;
+    const gymsBeaten   = stats.gymBeaten.filter(Boolean).length;
+    const wildNextType = gymsBeaten >= 8
+      ? "All Types (Elite Prep)"
+      : ALGE_DB[TYPE_TOPIC[GYM_DATA[gymsBeaten].catchType]].topicName;
     const buttons = [
       {
-        icon: TYPE_EMOJI[act.baseType], label: "(1) Wild Algemon Encounter",
-        sub: `Practice — ${ALGE_DB[TYPE_TOPIC[act.baseType]].topicName} (balanced vs your level)`,
+        icon: "🌿", label: "(1) Wild Algemon Encounter",
+        sub: `Topic: ${wildNextType} · Foe is 1–3 Lv below you (Lv ${lv})`,
         action: () => { setLastResult(null); startWildBattle(); },
       },
       {
@@ -694,22 +787,26 @@ export default function Game() {
       },
       {
         icon: "🔄", label: "(3) Change Algemon",
-        sub: `Party: ${stats.party.map(p => memberEmoji(p, xpToLevel(p.xp))).join(" ")} (${stats.party.length}/6 members)`,
+        sub: `Party: ${stats.party.map(p => memberEmoji(p, xpToLevel(p.xp))).join(" ")} (${stats.party.length}/6)`,
         action: () => { setLastResult(null); setScreen("changeAlgemon"); },
-        disabled: false,
       },
       {
-        icon: "🛒", label: "(4) WSCSS Tuck Shop",
+        icon: "📦", label: "(4) Alge-Box (PC Storage)",
+        sub: `${stats.box.length} Algemon in storage${stats.box.length > 0 ? " — swap with party" : " — catch wild Algemon to fill it"}`,
+        action: () => { setLastResult(null); setScreen("algeBox"); },
+      },
+      {
+        icon: "🛒", label: "(5) WSCSS Tuck Shop",
         sub: `Hint 50AC · Algaball 50AC · Potion 30AC  |  Balance: ${stats.algecoins} AC`,
         action: () => { setLastResult(null); setScreen("shop"); },
       },
       {
-        icon: "📊", label: "(5) Show Status",
+        icon: "📊", label: "(6) Show Status / Save",
         sub: `Accuracy: ${accuracy !== null ? accuracy + "%" : "N/A"}  |  Dex: ${stats.caughtSpecies.length}/24  |  Save Code`,
         action: () => { setLastResult(null); setScreen("status"); },
       },
       {
-        icon: "📚", label: "(6) Alge-Library",
+        icon: "📚", label: "(7) Alge-Library",
         sub: "Cheat sheet — key formulas and traps for all 10 topics",
         action: () => { setLastResult(null); setScreen("library"); },
       },
@@ -722,7 +819,9 @@ export default function Game() {
           {lastResult && (
             <div style={{ background: lastResult.won ? "#c8e6c9" : "#ffcdd2", border: `2px solid ${lastResult.won ? P.green : P.red}`, borderRadius: 4, padding: "7px 10px", marginBottom: 10, fontSize: 11 }}>
               {lastResult.caught
-                ? `Gotcha! ${lastResult.speciesName ?? "Algemon"} caught! +${lastResult.xpGained} XP`
+                ? lastResult.sentToBox
+                  ? `📦 ${lastResult.speciesName ?? "Algemon"} sent to Alge-Box! (Party full) +${lastResult.xpGained} XP`
+                  : `Gotcha! ${lastResult.speciesName ?? "Algemon"} joined your party! +${lastResult.xpGained} XP`
                 : lastResult.won
                 ? `Victory! +${lastResult.coinsGained} AC  +${lastResult.xpGained} XP${lastResult.badgeEarned ? "  +Badge!" : ""}${lastResult.newLv ? `  ★ LV ${lastResult.newLv}!` : ""}`
                 : "You fainted! No coins lost — review your study notes and try again."}
@@ -730,10 +829,10 @@ export default function Game() {
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             {buttons.map((item, i) => (
-              <button key={i} onClick={() => { if (!item.disabled) item.action(); }}
-                style={{ ...btnBase, textAlign: "left", padding: "9px 12px", background: item.disabled ? "#666" : P.darkBg, color: item.disabled ? "#aaa" : "#fff", cursor: item.disabled ? "not-allowed" : "pointer", boxShadow: item.disabled ? "none" : `3px 3px 0 ${P.border}`, fontSize: 12, lineHeight: 1.6 }}>
+              <button key={i} onClick={() => item.action()}
+                style={{ ...btnBase, textAlign: "left", padding: "9px 12px", background: P.darkBg, color: "#fff", cursor: "pointer", boxShadow: `3px 3px 0 ${P.border}`, fontSize: 12, lineHeight: 1.6 }}>
                 <div>{item.icon} <b>{item.label}</b></div>
-                <div style={{ fontSize: 10, color: item.disabled ? "#999" : "#a0d878", fontWeight: "normal" }}>{item.sub}</div>
+                <div style={{ fontSize: 10, color: "#a0d878", fontWeight: "normal" }}>{item.sub}</div>
               </button>
             ))}
           </div>
@@ -843,6 +942,154 @@ export default function Game() {
               Catch Algemons in battle to fill your party! ({6 - stats.party.length} slots free)
             </div>
           )}
+        </Card>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // ALGE-BOX — PC Storage
+  // ══════════════════════════════════════════════════════════════
+  if (screen === "algeBox") {
+    function doSwap(kind: "box" | "party", idx: number) {
+      if (!swapSrc) { setSwapSrc({ kind, idx }); return; }
+      if (swapSrc.kind === kind && swapSrc.idx === idx) { setSwapSrc(null); return; }
+      // Execute the swap
+      setStats(s => {
+        if (!s) return s;
+        const party = [...s.party];
+        const box   = [...s.box];
+        if (swapSrc.kind === "box" && kind === "party") {
+          const tmp = party[idx];
+          party[idx] = box[swapSrc.idx];
+          box[swapSrc.idx] = tmp;
+        } else if (swapSrc.kind === "party" && kind === "box") {
+          const tmp = box[idx];
+          box[idx] = party[swapSrc.idx];
+          party[swapSrc.idx] = tmp;
+          // Keep activeIndex valid
+          const ai = s.activeIndex === swapSrc.idx ? Math.min(swapSrc.idx, party.length - 1) : s.activeIndex;
+          return { ...s, party, box, activeIndex: ai };
+        } else if (swapSrc.kind === "box" && kind === "box") {
+          const tmp = box[idx];
+          box[idx] = box[swapSrc.idx];
+          box[swapSrc.idx] = tmp;
+        } else {
+          const tmp = party[idx];
+          party[idx] = party[swapSrc.idx];
+          party[swapSrc.idx] = tmp;
+        }
+        return { ...s, party, box };
+      });
+      setSwapSrc(null);
+    }
+
+    function releaseToBox(partyIdx: number) {
+      if (!stats || stats.party.length <= 1) return; // can't release last Algemon
+      setStats(s => {
+        if (!s) return s;
+        const party = [...s.party];
+        const released = party.splice(partyIdx, 1)[0];
+        const box = [...s.box, released];
+        const ai = s.activeIndex >= party.length ? party.length - 1 : s.activeIndex;
+        return { ...s, party, box, activeIndex: ai };
+      });
+    }
+
+    function withdrawFromBox(boxIdx: number) {
+      if (!stats || stats.party.length >= 6) return; // party full
+      setStats(s => {
+        if (!s) return s;
+        const box = [...s.box];
+        const member = box.splice(boxIdx, 1)[0];
+        const party = [...s.party, member];
+        return { ...s, party, box };
+      });
+    }
+
+    const MemberCard = ({ m, kind, idx }: { m: PartyMember; kind: "party" | "box"; idx: number }) => {
+      const mLv    = xpToLevel(m.xp);
+      const mName  = memberName(m, mLv);
+      const mEmoji = memberEmoji(m, mLv);
+      const stg    = getStage(mLv);
+      const isSelected = swapSrc?.kind === kind && swapSrc.idx === idx;
+      const isActive   = kind === "party" && idx === stats.activeIndex;
+      return (
+        <div style={{ background: isSelected ? "#2e7d32" : isActive ? "#1a3a1a" : P.logBg, border: `2px solid ${isSelected ? P.gold : P.border}`, borderRadius: 6, padding: "8px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+          <AlgemonSVG type={m.baseType} stage={stg} size={36} isEnemy={false} animate={false} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: P.gold, fontSize: 11, fontWeight: "bold" }}>
+              {mEmoji} {mName} {isActive && <span style={{ color: "#a0d878", fontSize: 9 }}>★ACT</span>}
+            </div>
+            <div style={{ color: "#a0d878", fontSize: 9 }}>
+              {m.baseType} · Lv {mLv} · {ALGE_DB[TYPE_TOPIC[m.baseType]].topicName}
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <button onClick={() => doSwap(kind, idx)}
+              style={{ ...btnLight, fontSize: 9, padding: "3px 6px" }}>
+              {isSelected ? "CANCEL" : "SWAP"}
+            </button>
+            {kind === "party" && (
+              <button onClick={() => releaseToBox(idx)} disabled={stats.party.length <= 1 || isActive}
+                title={isActive ? "Can't box active" : "Move to Box"}
+                style={{ ...(stats.party.length <= 1 || isActive ? btnDisabled : btnDark), fontSize: 9, padding: "3px 6px" }}>
+                →BOX
+              </button>
+            )}
+            {kind === "box" && (
+              <button onClick={() => withdrawFromBox(idx)} disabled={stats.party.length >= 6}
+                title={stats.party.length >= 6 ? "Party full" : "Add to party"}
+                style={{ ...(stats.party.length >= 6 ? btnDisabled : btnDark), fontSize: 9, padding: "3px 6px" }}>
+                →PTY
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div style={wrap}>
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <h2 style={{ color: P.border, fontSize: 14, fontWeight: "bold" }}>📦 ALGE-BOX</h2>
+            <button onClick={() => { setSwapSrc(null); setScreen("hub"); }} style={{ ...btnLight, fontSize: 11, padding: "4px 10px" }}>← HUB</button>
+          </div>
+          {swapSrc && (
+            <div style={{ background: "#2e7d32", border: `2px solid ${P.gold}`, borderRadius: 4, padding: "5px 10px", marginBottom: 8, fontSize: 10, color: P.gold }}>
+              ↔️ SWAP MODE — select another Algemon to swap with, or press CANCEL.
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <div style={{ color: P.border, fontSize: 11, fontWeight: "bold", marginBottom: 5 }}>
+                PARTY ({stats.party.length}/6)
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {stats.party.map((m, i) => <MemberCard key={i} m={m} kind="party" idx={i} />)}
+                {stats.party.length < 6 && (
+                  <div style={{ border: `2px dashed ${P.border}`, borderRadius: 5, padding: "8px", textAlign: "center", color: "#3a5a1a", fontSize: 10 }}>
+                    {6 - stats.party.length} slot{6 - stats.party.length > 1 ? "s" : ""} free
+                  </div>
+                )}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: P.border, fontSize: 11, fontWeight: "bold", marginBottom: 5 }}>
+                BOX ({stats.box.length})
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 380, overflowY: "auto" }}>
+                {stats.box.length === 0
+                  ? <div style={{ color: "#3a5a1a", fontSize: 10, textAlign: "center", padding: 10 }}>Empty — catch Algemons in wild battles!</div>
+                  : stats.box.map((m, i) => <MemberCard key={i} m={m} kind="box" idx={i} />)
+                }
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 9, color: "#3a5a1a" }}>
+            Tip: Click SWAP on two Algemon to exchange them. →BOX moves from party to box; →PTY withdraws from box.
+          </div>
         </Card>
       </div>
     );
