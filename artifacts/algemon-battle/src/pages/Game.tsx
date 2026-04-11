@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { AlgemonSVG } from "../components/AlgemonSVG";
+import MathText from "../components/MathText";
 import {
   AlgemonType, TopicKey, MCQuestion, SAQuestion,
   ALGEMON_TYPES, TYPE_COLOR, TYPE_EMOJI, TYPE_TOPIC,
@@ -26,6 +27,7 @@ interface ShuffledQ {
   text:    string;
   options: string[];   // randomised every new question
   correct: number;     // new index of the correct answer after shuffle
+  hint?:   string;     // per-question hint from QUESTION_BANK (optional)
 }
 
 interface PlayerStats {
@@ -102,7 +104,7 @@ function memberDefBonus(p: PartyMember, lv: number): number { return EVOLUTION_D
 function shuffleQuestion(q: MCQuestion): ShuffledQ {
   const correctText = q.options[q.correct];
   const shuffled    = [...q.options].sort(() => Math.random() - 0.5);
-  return { text: q.text, options: shuffled, correct: shuffled.indexOf(correctText) };
+  return { text: q.text, options: shuffled, correct: shuffled.indexOf(correctText), hint: q.hint };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -157,7 +159,11 @@ function BattleLog({ entries }: { entries: string[] }) {
   useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [entries]);
   return (
     <div ref={ref} style={{ background: P.logBg, border: `3px solid ${P.border}`, borderRadius: 4, padding: "5px 9px", height: 65, overflowY: "auto", ...mono, fontSize: 10, color: P.logText, lineHeight: 1.55 }}>
-      {entries.map((e, i) => <div key={i}>▸ {e}</div>)}
+      {entries.map((e, i) => (
+        <div key={i}>
+          {e.includes("$") ? <MathText>{"▸ " + e}</MathText> : <>▸ {e}</>}
+        </div>
+      ))}
     </div>
   );
 }
@@ -390,7 +396,8 @@ export default function Game() {
       const newHp = Math.max(0, playerHp - foeDmg);
       setPlayerHp(newHp);
       addLog(`✗ Wrong! You take ${foeDmg} dmg! (${newHp}/${PLAYER_MAX_HP} HP)`);
-      const hint = ctx.mode !== "elite" ? `  Tip: ${ALGE_DB[ctx.topic].hint.slice(0, 55)}…` : "";
+      const hintText = shQ?.hint ?? (ctx.mode !== "elite" ? ALGE_DB[ctx.topic].hint.slice(0, 60) + "…" : "");
+      const hint = hintText ? `  Tip: ${hintText}` : "";
       if (hint) addLog(hint);
       if (newHp <= 0) {
         addLog(`${memberName(active(stats), xpToLevel(active(stats).xp))} fainted!`);
@@ -996,7 +1003,7 @@ export default function Game() {
     const catchable  = canCatch(enemyHp);
     const hintAvail  = canUseHint(stats);
     const isElite    = ctx.mode === "elite";
-    const topicHint  = !isElite ? ALGE_DB[ctx.topic].hint : "Mixed HKDSE topics — apply everything you know!";
+    const topicHint  = shQ?.hint ?? (!isElite ? ALGE_DB[ctx.topic].hint : "Mixed HKDSE topics — apply everything you know!");
     const modeLabel  = isElite ? `ELITE ${ctx.eliteId! + 1}: ${ELITE_FOUR[ctx.eliteId!].name}` : ctx.mode === "gym" ? `GYM ${ctx.gymId! + 1}: ${GYM_DATA[ctx.gymId!].gymName}` : "WILD BATTLE";
     const foeLvShow  = ctx.foeLv ?? lv;
     const inv        = stats.inventory;
@@ -1039,7 +1046,7 @@ export default function Game() {
           {/* Hint */}
           {showHint && (
             <div style={{ background: "#fff9c4", border: `2px solid #f9a825`, color: "#5d4037", borderRadius: 4, padding: "7px 10px", fontSize: 11, marginBottom: 7, lineHeight: 1.5 }}>
-              💡 {topicHint}
+              💡 <MathText>{topicHint}</MathText>
             </div>
           )}
           {/* BAG panel */}
@@ -1093,7 +1100,7 @@ export default function Game() {
               <>
                 {!isElite && <div style={{ fontSize: 9, color: "#5a7a2a", marginBottom: 2 }}>Topic: {ALGE_DB[ctx.topic].topicName}</div>}
                 <div style={{ background: P.white, border: `3px solid ${P.border}`, borderRadius: 5, padding: "8px 11px", marginBottom: 7, fontSize: 12, color: P.border, fontWeight: "bold", lineHeight: 1.6, whiteSpace: "pre-line" }}>
-                  {shQ.text}
+                  <MathText>{shQ.text}</MathText>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 7 }}>
                   {shQ.options.map((opt, i) => {
@@ -1102,7 +1109,7 @@ export default function Game() {
                     return (
                       <button key={i} onClick={() => handleAnswer(i)} disabled={answered}
                         style={{ ...btnBase, background: correct ? "#a5d6a7" : wrong ? "#ffcdd2" : P.light, color: P.border, fontSize: 11, textAlign: "left", padding: "6px 8px", lineHeight: 1.4, cursor: answered ? "default" : "pointer", boxShadow: answered ? "none" : `3px 3px 0 ${P.border}` }}>
-                        <b>{["A","B","C","D"][i]}.</b> {opt}
+                        <b>{["A","B","C","D"][i]}.</b> <MathText>{opt}</MathText>
                       </button>
                     );
                   })}

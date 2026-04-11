@@ -16,7 +16,7 @@ export const TOPIC_KEYS = [
 ] as const;
 export type TopicKey = (typeof TOPIC_KEYS)[number];
 
-export interface MCQuestion   { text: string; options: string[]; correct: number; }
+export interface MCQuestion   { text: string; options: string[]; correct: number; hint?: string; }
 export interface SAQuestion   { text: string; answer: string; }
 export interface TopicData {
   topicName:   string;
@@ -142,7 +142,88 @@ export function normalizeAns(s: string): string {
 // ══════════════════════════════════════════════════════════════
 export const QUESTION_BANK: Record<TopicKey, { mc: MCQuestion[]; sa: SAQuestion[] }> = {
   factorization:   { mc: [], sa: [] },
-  changeOfSubject: { mc: [], sa: [] },
+  changeOfSubject: {
+    mc: [
+      {
+        // Q94 [HKCEE 1999 MII Q.1]
+        text: "If $y = \\frac{1}{2x - 1}$, then $x = $",
+        options: ["$\\frac{y+1}{2y}$", "$\\frac{y-1}{2y}$", "$\\frac{1-y}{2y}$", "$\\frac{1}{2y} + 1$"],
+        correct: 0,
+        hint: "Multiply by $(2x-1)$ to get $y(2x-1) = 1$. Then expand: $2xy - y = 1$.",
+      },
+      {
+        // Q108 [HKCEE 2002 MII Q.3]
+        text: "If $h = 5 + \\frac{k}{2 - k}$, then $k = $",
+        options: ["$\\frac{h-5}{h-4}$", "$\\frac{h-5}{h-6}$", "$\\frac{2h-10}{h-4}$", "$\\frac{2h-10}{h-6}$"],
+        correct: 2,
+        hint: "First, isolate the fraction: $h - 5 = \\frac{k}{2 - k}$. Then cross-multiply.",
+      },
+      {
+        // Q121 [HKCEE 2006 MII Q.4]
+        text: "If $\\frac{1}{a} + \\frac{b}{c} = 2$, then $c = $",
+        options: ["$\\frac{ab}{2a-1}$", "$\\frac{ab}{1-2a}$", "$\\frac{a-2}{ab}$", "$\\frac{2-a}{ab}$"],
+        correct: 0,
+        hint: "$\\frac{b}{c} = 2 - \\frac{1}{a} = \\frac{2a-1}{a}$. Flip both sides to solve for $c$.",
+      },
+      {
+        // Q123 [HKCEE 2007 MII Q.4]
+        text: "If $a = \\frac{b-1}{c-2}$, then $c = $",
+        options: ["$\\frac{b-1+2a}{a}$", "$\\frac{b-1-2a}{a}$", "$\\frac{b+1+2a}{a}$", "$\\frac{b-1}{a-2}$"],
+        correct: 0,
+        hint: "Cross-multiply: $a(c-2) = b-1$, so $ac - 2a = b-1$. Now isolate $ac$.",
+      },
+      {
+        // Q131 [HKCEE 2010 MII Q.4]
+        text: "If $h = \\frac{a+b}{ab}$, then $b = $",
+        options: ["$\\frac{a}{ah-1}$", "$\\frac{a}{ah+1}$", "$\\frac{h-a}{a}$", "$\\frac{a-h}{a}$"],
+        correct: 0,
+        hint: "Cross-multiply to get $hab = a + b$. Group all 'b' terms: $hab - b = a$.",
+      },
+      {
+        // Q138 [HKCEE 2011 MII Q.4]
+        text: "If $u = \\frac{v+2}{2v-1}$, then $v = $",
+        options: ["$\\frac{u+2}{2u-1}$", "$\\frac{u-2}{2u-1}$", "$\\frac{u+2}{2u+1}$", "$\\frac{u-2}{2u+1}$"],
+        correct: 0,
+        hint: "Expand $u(2v-1) = v+2$ to $2uv - u = v + 2$. Move $v$ to one side: $2uv - v = u + 2$.",
+      },
+      {
+        // Q143 [HKDSE 2012 MII Q.3]
+        text: "If $a = \\frac{b+2c}{3bc}$, then $c = $",
+        options: ["$\\frac{b}{3ab-2}$", "$\\frac{b}{2-3ab}$", "$\\frac{b}{3ab+2}$", "$\\frac{2b}{3ab-1}$"],
+        correct: 0,
+        hint: "$3abc = b + 2c$. Group the terms with $c$: $3abc - 2c = b$.",
+      },
+      {
+        // Q156 [HKDSE 2015 MII Q.3]
+        text: "If $x = \\frac{3+4y}{y-2}$, then $y = $",
+        options: ["$\\frac{2x+3}{x-4}$", "$\\frac{2x-3}{x-4}$", "$\\frac{2x+3}{x+4}$", "$\\frac{2x-3}{x+4}$"],
+        correct: 0,
+        hint: "Multiply by $(y-2)$ to get $xy - 2x = 3 + 4y$. Group $y$ terms: $xy - 4y = 2x + 3$.",
+      },
+      {
+        // Q162 [HKDSE 2017 MII Q.3]
+        text: "If $A = 2(l+w)h$, then $w = $",
+        options: ["$\\frac{A-2lh}{2h}$", "$\\frac{A-2lh}{h}$", "$\\frac{A-lh}{2h}$", "$\\frac{A}{2h} + l$"],
+        correct: 0,
+        hint: "Divide by $2h$ first: $\\frac{A}{2h} = l + w$. Then subtract $l$.",
+      },
+      {
+        // Q168 [HKDSE 2019 MII Q.3]
+        text: "If $h = \\frac{k-5}{k+5}$, then $k = $",
+        options: ["$\\frac{5(1+h)}{1-h}$", "$\\frac{5(1-h)}{1+h}$", "$\\frac{5h+1}{h-1}$", "$\\frac{5h-1}{h+1}$"],
+        correct: 0,
+        hint: "Cross-multiply: $hk + 5h = k - 5$. Rearrange: $5h + 5 = k - hk$.",
+      },
+      {
+        // Q169 [HKDSE 2019 MII Q.4]
+        text: "If $x = \\sqrt{y+3} - 1$, then $y = $",
+        options: ["$(x+1)^2 - 3$", "$(x-1)^2 - 3$", "$x^2 - 2$", "$x^2 + 2$"],
+        correct: 0,
+        hint: "Isolate the root: $x+1 = \\sqrt{y+3}$. Square both sides: $(x+1)^2 = y+3$.",
+      },
+    ],
+    sa: [],
+  },
   inequalities:    { mc: [], sa: [] },
   indices:         { mc: [], sa: [] },
   simultaneous:    { mc: [], sa: [] },
