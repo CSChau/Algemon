@@ -51,11 +51,11 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
   - **Party system**: up to 6; each member has baseType + xp + color
   - **Alge-Box PC Storage**: unlimited storage; full PC swap interface (→BOX/→PTY); caught Algemon sent to box when party is full
   - **Anti-repeat questions**: `usedQuestions: Record<TopicKey, number[]>` tracks used indices per topic; resets when topic bank exhausted (full cycle)
-  - **QUESTION_BANK**: 15 MC questions per topic (15 per topic × 10 topics; `coordinates` = 15 algebraic fractions questions from HKDSE/HKCEE); falls back to ALGE_DB if empty
+  - **QUESTION_BANK**: 15 MC questions per topic (15 per topic × 10 topics; `fractions` = 15 algebraic fractions questions from HKDSE/HKCEE); falls back to ALGE_DB if empty
   - **Save Code v6**: `WSCSS-V6-<base64>` encodes full state: party, box, gym progress, inventory, dex, usedQuestions; backward compat with legacy ALGE5 format
   - **Algaball catch mechanic**: probability-based catch ((1−foHP%)×0.85); color-coded button; no SA question
   - Status screen: accuracy %, Dex collection 24/24, "Active XP" for current Algemon, v6 save code
   - Alge-Library: 10 study topics with formulas + HKDSE traps
   - Economy: Tuck Shop sells Hints (50AC), Algaballs (50AC), Potions (30AC)
-  - 10 topics: factorization, changeOfSubject, inequalities, indices, simultaneous, polynomials, quadratic, functions, coordinates (Algebraic Fractions), ratios
-  - Ground type = "Algebraic Fractions" topic (coordinates key internally)
+  - 10 topics: factorization, changeOfSubject, inequalities, indices, simultaneous, polynomials, quadratic, functions, fractions (Algebraic Fractions), ratios
+  - Ground type = "Algebraic Fractions" topic (fractions key internally)

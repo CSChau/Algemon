@@ -3,15 +3,16 @@ import { AlgemonSVG } from "../components/AlgemonSVG";
 import MathText from "../components/MathText";
 import {
   AlgemonType, TopicKey, MCQuestion, SAQuestion,
-  ALGEMON_TYPES, TYPE_COLOR, TYPE_EMOJI, TYPE_TOPIC,
+  ELEMENTAL_ALGEMON_TYPES, TOPIC_KEYS, TYPE_COLOR, TYPE_EMOJI, TYPE_TOPIC,
   WILD_ENEMY, GYM_DATA, ALGE_DB, ELITE_FOUR, STUDY_GUIDE, SPECIES_LIST,
   EVOLUTION_DATA, getEvolutionStage, getSpeciesId,
   PLAYER_MAX_HP, ENEMY_MAX_HP, BASE_DAMAGE,
   calcPlayerDmg, calcFoeDmg,
   CATCH_MODIFIER, XP_PER_CORRECT_WILD, XP_PER_CORRECT_GYM, XP_PER_CORRECT_ELITE,
-  XP_PER_LEVEL, MAX_LEVEL, HINT_MIN_LEVEL, HINT_TOOL_COST, ALGEBALL_COST, POTION_COST, POTION_HEAL,
+  MAX_LEVEL, HINT_MIN_LEVEL, HINT_TOOL_COST, ALGEBALL_COST, POTION_COST, POTION_HEAL,
   WILD_WIN_COINS, GYM_WIN_COINS, ELITE_WIN_COINS,
-  xpToLevel, xpToNextLevel, pickRandom, normalizeAns, QUESTION_BANK,
+  xpToLevel, xpToNextLevel, xpForLevelStart, xpRequiredForLevel, pickRandom, normalizeAns, QUESTION_BANK,
+  DOUBLE_STAR_SPECIES_ID, DOUBLE_STAR_SPAWN_RATE, DOUBLE_STAR_BATTLE_QUOTE,
 } from "../data/gameData";
 
 // ══════════════════════════════════════════════════════════════
@@ -30,6 +31,14 @@ interface ShuffledQ {
   hint?:   string;     // per-question hint from QUESTION_BANK (optional)
 }
 
+interface WrongAttempt {
+  mode: "mc" | "sa";
+  topic: string;
+  question: string;
+  correctAnswer: string;
+  solution: string;
+}
+
 interface PlayerStats {
   name:             string;
   activeIndex:      number;
@@ -43,6 +52,8 @@ interface PlayerStats {
   totalCorrect:     number;
   caughtSpecies:    string[];
   usedQuestions:    Record<string, number[]>;  // topic → used indices (anti-repeat)
+  dseScholar:       boolean;  // defeated or caught Double-Star (hidden legendary)
+  wrongAttempts:    WrongAttempt[];
 }
 
 interface BattleCtx {
@@ -61,6 +72,8 @@ interface BattleCtx {
   coinReward:  number;
   badgeReward: boolean;
   catchType:   AlgemonType;
+  openingQuote?:    string;
+  grantsDseScholar?: boolean;
 }
 
 interface BattleResult {
@@ -68,6 +81,7 @@ interface BattleResult {
   coinsGained: number; badgeEarned: boolean;
   gymId?: number; eliteId?: number; newLv?: number;
   speciesName?: string; sentToBox?: boolean;
+  dseScholarUnlocked?: boolean;
 }
 
 interface PendingEvolution {
@@ -76,8 +90,8 @@ interface PendingEvolution {
   evolutions: { from: string; to: string; emoji: string; type: AlgemonType }[];
 }
 
-type Screen = "start" | "hub" | "gymSelect" | "gymCutscene" | "algeBox" | "shop" | "changeAlgemon"
-            | "status" | "library" | "evolution" | "battle" | "result";
+type Screen = "intro" | "start" | "hub" | "gymSelect" | "gymCutscene" | "algeBox" | "shop" | "changeAlgemon"
+            | "status" | "mistakes" | "library" | "evolution" | "battle" | "result";
 
 // ══════════════════════════════════════════════════════════════
 // PALETTE & STYLES
@@ -137,7 +151,9 @@ function HpBar({ hp, maxHp, label }: { hp: number; maxHp: number; label: string 
 
 function XpBar({ xp, label }: { xp: number; label?: string }) {
   const lv  = xpToLevel(xp);
-  const pct = lv >= 30 ? 100 : ((xp - (lv - 1) * XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
+  const start = xpForLevelStart(lv);
+  const need = xpRequiredForLevel(lv);
+  const pct = lv >= 30 ? 100 : ((xp - start) / need) * 100;
   const hintFree = lv >= HINT_MIN_LEVEL;
   return (
     <div>
@@ -184,7 +200,7 @@ function StatBadge({ label, value, color = P.gold }: { label: string; value: str
 export default function Game() {
 
   const [stats,  setStats]  = useState<PlayerStats | null>(null);
-  const [screen, setScreen] = useState<Screen>("start");
+  const [screen, setScreen] = useState<Screen>("intro");
 
   // Battle state
   const [ctx,         setCtx]         = useState<BattleCtx | null>(null);
@@ -205,10 +221,17 @@ export default function Game() {
 
   // Start form
   const [startName, setStartName] = useState("");
+  const [nameError, setNameError] = useState("");
   const [startType, setStartType] = useState<AlgemonType | null>(null);
   // Save code
   const [saveCodeInput, setSaveCodeInput] = useState("");
   const [saveCodeError, setSaveCodeError] = useState("");
+  // Audio
+  const [musicEnabled, setMusicEnabled] = useState(true);
+  const [sfxEnabled, setSfxEnabled] = useState(true);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const musicTimerRef = useRef<number | null>(null);
+  const musicStepRef = useRef(0);
   // Gym cutscene
   const [pendingGymId, setPendingGymId] = useState<number | null>(null);
   // Library
@@ -217,6 +240,61 @@ export default function Game() {
   const [swapSrc, setSwapSrc] = useState<{ kind: "box" | "party"; idx: number } | null>(null);
 
   const addLog = (msg: string) => setLog(prev => [...prev.slice(-40), msg]);
+  const pushWrongAttempt = (entry: WrongAttempt) => {
+    setStats(s => s ? { ...s, wrongAttempts: [...s.wrongAttempts, entry].slice(-80) } : s);
+  };
+  const ensureAudio = () => {
+    if (typeof window === "undefined") return null;
+    if (!audioCtxRef.current) {
+      const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtxRef.current = new Ctx();
+    }
+    if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
+    return audioCtxRef.current;
+  };
+  const playTone = (freq: number, durationMs: number, type: OscillatorType, volume = 0.05) => {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(volume, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + durationMs / 1000);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + durationMs / 1000 + 0.02);
+  };
+  const playSfx = (kind: "start" | "correct" | "wrong" | "catch" | "miss" | "throw") => {
+    if (!sfxEnabled) return;
+    if (kind === "start") { playTone(523.25, 90, "triangle", 0.03); return; }
+    if (kind === "correct") { playTone(659.25, 90, "square", 0.04); playTone(783.99, 110, "square", 0.03); return; }
+    if (kind === "wrong") { playTone(220, 130, "sawtooth", 0.035); return; }
+    if (kind === "catch") { playTone(784, 90, "triangle", 0.04); playTone(988, 120, "triangle", 0.03); return; }
+    if (kind === "miss") { playTone(196, 130, "sawtooth", 0.03); return; }
+    playTone(392, 70, "square", 0.025);
+  };
+  const stopMusic = () => {
+    if (musicTimerRef.current !== null) {
+      window.clearInterval(musicTimerRef.current);
+      musicTimerRef.current = null;
+    }
+  };
+  const startMusic = () => {
+    stopMusic();
+    // Happier looped motif.
+    const melody = [392.0, 440.0, 523.25, 659.25, 587.33, 523.25, 440.0, 523.25];
+    musicStepRef.current = 0;
+    musicTimerRef.current = window.setInterval(() => {
+      if (!musicEnabled) return;
+      const f = melody[musicStepRef.current % melody.length];
+      playTone(f, 420, "triangle", 0.018);
+      playTone(f / 2, 420, "sine", 0.01);
+      musicStepRef.current++;
+    }, 560);
+  };
 
   const active = (s: PlayerStats) => s.party[s.activeIndex];
 
@@ -237,6 +315,8 @@ export default function Game() {
       tc:  s.totalCorrect,
       cs:  s.caughtSpecies,
       uq:  s.usedQuestions,
+      ...(s.dseScholar ? { ds: true } : {}),
+      ...(s.wrongAttempts.length > 0 ? { wa: s.wrongAttempts } : {}),
     };
     return `WSCSS-V6-${btoa(JSON.stringify(data))}`;
   }
@@ -245,7 +325,7 @@ export default function Game() {
     const fixMember = ([t, xp]: [string, number]): PartyMember => ({
       baseType: t as AlgemonType,
       color: TYPE_COLOR[t as AlgemonType] ?? "#888",
-      xp: Math.max(0, Math.min(Number(xp), XP_PER_LEVEL * MAX_LEVEL)),
+      xp: Math.max(0, Math.min(Number(xp), xpForLevelStart(MAX_LEVEL))),
     });
     try {
       const trimmed = code.trim();
@@ -274,6 +354,8 @@ export default function Game() {
           totalCorrect:   d.tc ?? 0,
           caughtSpecies:  d.cs ?? [],
           usedQuestions:  d.uq ?? {},
+          dseScholar:     d.ds === true,
+          wrongAttempts:  (d.wa ?? []).slice(0, 80),
         };
       }
 
@@ -303,6 +385,8 @@ export default function Game() {
         totalQuestions:   0, totalCorrect: 0,
         caughtSpecies:    [getSpeciesId(baseType, 0)],
         usedQuestions:    {},
+        dseScholar:       false,
+        wrongAttempts:    [],
       };
     } catch { return null; }
   }
@@ -318,6 +402,27 @@ export default function Game() {
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, pendingGymId]);
+
+  // Intro splash: continue on any key or touch.
+  useEffect(() => {
+    if (screen !== "intro") return;
+    const goStart = () => setScreen("start");
+    const onKey = () => goStart();
+    const onTouch = () => goStart();
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onTouch);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onTouch);
+    };
+  }, [screen]);
+
+  useEffect(() => {
+    if (musicEnabled) startMusic();
+    else stopMusic();
+    return () => stopMusic();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [musicEnabled]);
 
   // ── Anti-repeat question picker ──────────────────────────────
   function pickQuestion(c: BattleCtx): MCQuestion {
@@ -369,9 +474,11 @@ export default function Game() {
     setBattleCorrect(0);
     setLog([
       `${bc.enemyName} (Lv ${foeLv}) appeared!`,
+      ...(bc.openingQuote ? [bc.openingQuote] : []),
       `Topic: ${topicLabel}`,
       `${currentStats.name}'s ${memberName(act, lv)} (Lv ${lv}) steps forward!`,
     ]);
+    playSfx("start");
     setScreen("battle");
   }
 
@@ -379,13 +486,37 @@ export default function Game() {
     if (!stats) return;
     const act    = active(stats);
     const actLv  = xpToLevel(act.xp);
+    const accPct = stats.totalQuestions > 0 ? (stats.totalCorrect / stats.totalQuestions) * 100 : 0;
     // Foe is 1–3 levels below the active Algemon (min level 1)
     const foeLv  = Math.max(1, actLv - 1 - Math.floor(Math.random() * 3));
-    // Topic = next gym's type if gyms < 8; otherwise random from all 8
+    const eightGymsDone = stats.gymBeaten.every(Boolean);
+    if (eightGymsDone && accPct >= 95 && Math.random() < DOUBLE_STAR_SPAWN_RATE) {
+      const topic = TOPIC_KEYS[Math.floor(Math.random() * TOPIC_KEYS.length)];
+      const legendLv = Math.min(MAX_LEVEL, actLv + 5);
+      launchBattle({
+        mode: "wild",
+        topic,
+        speciesId: DOUBLE_STAR_SPECIES_ID,
+        enemyName: "Double-Star",
+        enemyColor: TYPE_COLOR.Legendary,
+        enemyEmoji: TYPE_EMOJI.Legendary,
+        enemyType: "Legendary",
+        enemyStage: 2,
+        foeLv: legendLv,
+        xpReward: XP_PER_CORRECT_WILD,
+        coinReward: WILD_WIN_COINS,
+        badgeReward: false,
+        catchType: "Legendary",
+        openingQuote: DOUBLE_STAR_BATTLE_QUOTE,
+        grantsDseScholar: true,
+      }, stats);
+      return;
+    }
+    // Topic = next gym's type if gyms < 8; otherwise random from all 8 element types
     const gymsBeaten = stats.gymBeaten.filter(Boolean).length;
     let wildType: AlgemonType;
     if (gymsBeaten >= 8) {
-      wildType = ALGEMON_TYPES[Math.floor(Math.random() * ALGEMON_TYPES.length)];
+      wildType = ELEMENTAL_ALGEMON_TYPES[Math.floor(Math.random() * ELEMENTAL_ALGEMON_TYPES.length)];
     } else {
       wildType = GYM_DATA[gymsBeaten].catchType;
     }
@@ -415,11 +546,13 @@ export default function Game() {
   function startEliteBattle(eliteId: number) {
     if (!stats) return;
     const elite = ELITE_FOUR[eliteId];
+    const highestLv = Math.max(...stats.party.map((p) => xpToLevel(p.xp)));
+    const dynamicEliteLv = highestLv + eliteId + 1;
     launchBattle({
       mode: "elite", eliteId, topic: "factorization", speciesId: elite.speciesId,
       enemyName: elite.enemyName, enemyColor: elite.enemyColor, enemyEmoji: elite.enemyEmoji,
       enemyType: elite.catchType, enemyStage: 2,
-      foeLv: elite.foeLevel, xpReward: XP_PER_CORRECT_ELITE,
+      foeLv: dynamicEliteLv, xpReward: XP_PER_CORRECT_ELITE,
       coinReward: ELITE_WIN_COINS, badgeReward: false, catchType: elite.catchType,
     }, stats);
   }
@@ -456,7 +589,12 @@ export default function Game() {
       i === activeIdx ? { ...m, xp: newXp } : m
     );
     let newBox = [...st.box];
-    const caughtMember: PartyMember = { baseType: ctx.catchType, color: TYPE_COLOR[ctx.catchType], xp: 0 };
+    const caughtLv = Math.min(10, Math.max(1, ctx.foeLv ?? lv));
+    const caughtMember: PartyMember = {
+      baseType: ctx.catchType,
+      color: TYPE_COLOR[ctx.catchType],
+      xp: xpForLevelStart(caughtLv),
+    };
     if (caught && st.party.length < 6) {
       newParty = [...newParty, caughtMember];
     } else if (caught) {
@@ -485,7 +623,17 @@ export default function Game() {
       };
     }
 
-    setStats(s => s ? { ...s, algecoins: newCoins, gymBeaten: newGym, eliteFourBeaten: newElite, caughtSpecies: newSpecies, party: newParty, box: newBox } : s);
+    const nextDse = st.dseScholar || Boolean(ctx.grantsDseScholar);
+    setStats(s => s ? {
+      ...s,
+      algecoins: newCoins,
+      gymBeaten: newGym,
+      eliteFourBeaten: newElite,
+      caughtSpecies: newSpecies,
+      party: newParty,
+      box: newBox,
+      dseScholar: nextDse,
+    } : s);
     if (evoInfo) setPendingEvolution(evoInfo);
 
     const spName = SPECIES_LIST.find(sp => sp.id === ctx.speciesId)?.name;
@@ -495,6 +643,7 @@ export default function Game() {
       badgeEarned: ctx.badgeReward && !caught,
       gymId: ctx.gymId, eliteId: ctx.eliteId,
       newLv: newLv > prevLv ? newLv : undefined, speciesName: spName, sentToBox,
+      dseScholarUnlocked: Boolean(ctx.grantsDseScholar) && !st.dseScholar,
     });
     setTimeout(() => setScreen("result"), 900);
   }
@@ -516,6 +665,7 @@ export default function Game() {
     } : s);
 
     if (isCorrect) {
+      playSfx("correct");
       const newEnemyHp = Math.max(0, enemyHp - playerDmg);
       const newCount   = battleCorrect + 1;
       setEnemyHp(newEnemyHp);
@@ -532,6 +682,16 @@ export default function Game() {
         setTimeout(nextQuestion, 1500);
       }
     } else {
+      playSfx("wrong");
+      const topicLabel = ctx.mode === "elite" ? "Elite Mixed Topics" : ALGE_DB[ctx.topic].topicName;
+      const solution = shQ.hint ?? (ctx.mode !== "elite" ? ALGE_DB[ctx.topic].hint : "Review the relevant method and retry.");
+      pushWrongAttempt({
+        mode: "mc",
+        topic: topicLabel,
+        question: shQ.text,
+        correctAnswer: shQ.options[shQ.correct] ?? "N/A",
+        solution,
+      });
       const newHp = Math.max(0, playerHp - foeDmg);
       setPlayerHp(newHp);
       addLog(`✗ Wrong! You take ${foeDmg} dmg! (${newHp}/${PLAYER_MAX_HP} HP)`);
@@ -555,9 +715,19 @@ export default function Game() {
     const correct = normalizeAns(catchInput) === normalizeAns(catchQ.answer);
     setStats(s => s ? { ...s, totalQuestions: s.totalQuestions + 1, totalCorrect: s.totalCorrect + (correct ? 1 : 0) } : s);
     if (correct) {
+      playSfx("catch");
       addLog(`Gotcha! ${ctx.enemyName} was caught!`);
       applyVictory(true, battleCorrect, stats, enemyHp);
     } else {
+      playSfx("miss");
+      const topicLabel = ctx.mode === "elite" ? "Elite Mixed Topics" : ALGE_DB[ctx.topic].topicName;
+      pushWrongAttempt({
+        mode: "sa",
+        topic: topicLabel,
+        question: catchQ.text,
+        correctAnswer: catchQ.answer,
+        solution: ALGE_DB[ctx.topic].hint,
+      });
       addLog(`Catch failed! Correct was: ${catchQ.answer}. ${ctx.enemyName} broke free!`);
       setTimeout(() => { setCatchMode(false); setCatchInput(""); setCatchDone(false); nextQuestion(); }, 2200);
     }
@@ -575,14 +745,17 @@ export default function Game() {
     const pct = Math.round(catchChance * 100);
     setStats(s => s ? { ...s, inventory: { ...s.inventory, algaballs: s.inventory.algaballs - 1 } } : s);
     setShowBag(false);
+    playSfx("throw");
     addLog(`⭕ Algaball thrown! Catch chance: ~${pct}%…`);
     const snapStats = stats;
     const snapEnemyHp = enemyHp;
     setTimeout(() => {
       if (Math.random() < catchChance) {
+        playSfx("catch");
         addLog(`🎉 Gotcha! ${ctx!.enemyName} was caught!`);
         setTimeout(() => applyVictory(true, 0, snapStats, snapEnemyHp), 700);
       } else {
+        playSfx("miss");
         addLog(`💨 Oh no! ${ctx!.enemyName} broke free! (${pct}% wasn't enough)`);
       }
     }, 1000);
@@ -621,6 +794,30 @@ export default function Game() {
   };
 
   // ══════════════════════════════════════════════════════════════
+  // INTRO SPLASH
+  // ══════════════════════════════════════════════════════════════
+  if (screen === "intro") {
+    return (
+      <div style={{ ...wrap, alignItems: "center", justifyContent: "center", background: "linear-gradient(180deg, #b7e36a 0%, #8bac0f 55%, #6f8c0c 100%)" }}>
+        <Card style={{ maxWidth: 620 }}>
+          <h1 style={{ textAlign: "center", color: P.border, fontSize: 20, fontWeight: "bold", marginBottom: 6 }}>WELCOME TO ALGEMON WORLD</h1>
+          <div style={{ textAlign: "center", color: "#2f4f2f", fontSize: 12, marginBottom: 10 }}>
+            Learn Math, Catch Algemon, Grow Stronger!
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6, marginBottom: 10 }}>
+            {ELEMENTAL_ALGEMON_TYPES.map((t) => (
+              <AlgemonSVG key={t} type={t} stage={0} size={58} animate />
+            ))}
+          </div>
+          <div style={{ textAlign: "center", fontSize: 12, color: "#e0f0c0", background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 5, padding: "7px 10px" }}>
+            Press any key or tap anywhere to continue
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // START SCREEN — 8-type selector grid
   // ══════════════════════════════════════════════════════════════
   if (screen === "start") {
@@ -629,12 +826,21 @@ export default function Game() {
         <Card>
           <h1 style={{ textAlign: "center", color: P.border, fontSize: 15, fontWeight: "bold", letterSpacing: 1, marginBottom: 1 }}>⚔️ ALGEMON MATH BATTLE</h1>
           <div style={{ textAlign: "center", fontSize: 10, color: "#3a5a1a", marginBottom: 14 }}>WSCSS v5 — HKDSE Compulsory Part A</div>
-          <label style={{ display: "block", color: P.border, fontSize: 12, marginBottom: 3 }}>TRAINER NAME:</label>
-          <input type="text" maxLength={16} value={startName} onChange={e => setStartName(e.target.value)} placeholder="Enter your name"
+          <label style={{ display: "block", color: P.border, fontSize: 12, marginBottom: 3 }}>TRAINER NAME (ENGLISH ONLY):</label>
+          <input type="text" maxLength={16} value={startName} onChange={e => {
+            const next = e.target.value;
+            if (/^[A-Za-z0-9 _-]*$/.test(next)) {
+              setStartName(next);
+              setNameError("");
+            } else {
+              setNameError("Use English letters/numbers only (Chinese input is not supported).");
+            }
+          }} placeholder="Enter your name (English only)"
             style={{ width: "100%", boxSizing: "border-box", ...mono, fontSize: 13, padding: "6px 10px", border: `3px solid ${P.border}`, borderRadius: 4, background: P.white, marginBottom: 14 }} />
+          {nameError && <div style={{ color: "#c62828", fontSize: 10, marginTop: -10, marginBottom: 10 }}>{nameError}</div>}
           <div style={{ color: P.border, fontSize: 12, marginBottom: 6 }}>CHOOSE YOUR ALGEMON STARTER:</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
-            {ALGEMON_TYPES.map(t => {
+            {ELEMENTAL_ALGEMON_TYPES.map(t => {
               const stage0 = EVOLUTION_DATA[t].stages[0];
               return (
                 <button key={t} onClick={() => setStartType(t)} style={{
@@ -669,10 +875,12 @@ export default function Game() {
               totalQuestions: 0, totalCorrect: 0,
               caughtSpecies: [getSpeciesId(startType, 0)],
               usedQuestions: {},
+              dseScholar: false,
+              wrongAttempts: [],
             });
             setScreen("hub");
-          }} disabled={!startName.trim() || !startType}
-            style={{ ...(!startName.trim() || !startType ? btnDisabled : btnDark), width: "100%", padding: "11px 0", fontSize: 14 }}>
+          }} disabled={!startName.trim() || !startType || Boolean(nameError)}
+            style={{ ...(!startName.trim() || !startType || Boolean(nameError) ? btnDisabled : btnDark), width: "100%", padding: "11px 0", fontSize: 14 }}>
             ▶ BEGIN ADVENTURE
           </button>
           <div style={{ marginTop: 14, borderTop: `2px solid ${P.border}`, paddingTop: 12 }}>
@@ -770,6 +978,7 @@ export default function Game() {
   if (screen === "hub") {
     const nextGym   = GYM_DATA.find((_, i) => !stats.gymBeaten[i]);
     const nextElite = allGyms ? ELITE_FOUR.find((_, i) => !stats.eliteFourBeaten[i]) : null;
+    const highestPartyLv = Math.max(...stats.party.map((p) => xpToLevel(p.xp)));
     const gymsBeaten   = stats.gymBeaten.filter(Boolean).length;
     const wildNextType = gymsBeaten >= 8
       ? "All Types (Elite Prep)"
@@ -782,18 +991,20 @@ export default function Game() {
       },
       {
         icon: "🏅", label: `(2) Challenge Gym${allGyms ? " / Elite Four" : ""}`,
-        sub: isChamp ? "🏆 CHAMPION — All cleared!" : nextElite ? `ELITE: ${nextElite.name} awaits!` : nextGym ? `Next: ${nextGym.gymName} (Foe Lv ${nextGym.foeLevel})` : "All gyms beaten!",
+        sub: isChamp ? "🏆 CHAMPION — All cleared!" : nextElite ? `ELITE: ${nextElite.name} awaits! (Lv ${highestPartyLv + nextElite.id + 1})` : nextGym ? `Next: ${nextGym.gymName} (Foe Lv ${nextGym.foeLevel})` : "All gyms beaten!",
         action: () => { setLastResult(null); setScreen("gymSelect"); },
       },
       {
-        icon: "🔄", label: "(3) Change Algemon",
-        sub: `Party: ${stats.party.map(p => memberEmoji(p, xpToLevel(p.xp))).join(" ")} (${stats.party.length}/6)`,
-        action: () => { setLastResult(null); setScreen("changeAlgemon"); },
+        icon: "📦", label: "(3) Alge-Box (Party + PC)",
+        sub: `Party ${stats.party.length}/6 · Box ${stats.box.length}${stats.box.length > 0 ? " — use swap/withdraw here" : ""}`,
+        action: () => { setLastResult(null); setScreen("algeBox"); },
       },
       {
-        icon: "📦", label: "(4) Alge-Box (PC Storage)",
-        sub: `${stats.box.length} Algemon in storage${stats.box.length > 0 ? " — swap with party" : " — catch wild Algemon to fill it"}`,
-        action: () => { setLastResult(null); setScreen("algeBox"); },
+        icon: "🧠", label: "(4) Wrong Answer Review",
+        sub: stats.wrongAttempts.length > 0
+          ? `${stats.wrongAttempts.length} recorded mistakes · tap to see step-by-step hints`
+          : "No mistakes recorded yet — great job so far!",
+        action: () => { setLastResult(null); setScreen("mistakes"); },
       },
       {
         icon: "🛒", label: "(5) WSCSS Tuck Shop",
@@ -802,7 +1013,7 @@ export default function Game() {
       },
       {
         icon: "📊", label: "(6) Show Status / Save",
-        sub: `Accuracy: ${accuracy !== null ? accuracy + "%" : "N/A"}  |  Dex: ${stats.caughtSpecies.length}/24  |  Save Code`,
+        sub: `Accuracy: ${accuracy !== null ? accuracy + "%" : "N/A"}  |  Dex: ${stats.caughtSpecies.length}/${SPECIES_LIST.length}  |  Save Code`,
         action: () => { setLastResult(null); setScreen("status"); },
       },
       {
@@ -815,6 +1026,14 @@ export default function Game() {
       <div style={wrap}>
         <Card>
           <h2 style={{ textAlign: "center", color: P.border, fontSize: 15, fontWeight: "bold", marginBottom: 10 }}>📋 TRAINER HUB</h2>
+          <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 8 }}>
+            <button onClick={() => setMusicEnabled(v => !v)} style={{ ...btnLight, fontSize: 10, padding: "4px 8px" }}>
+              {musicEnabled ? "🎵 Music ON" : "🎵 Music OFF"}
+            </button>
+            <button onClick={() => setSfxEnabled(v => !v)} style={{ ...btnLight, fontSize: 10, padding: "4px 8px" }}>
+              {sfxEnabled ? "🔊 SFX ON" : "🔇 SFX OFF"}
+            </button>
+          </div>
           <PlayerBar />
           {lastResult && (
             <div style={{ background: lastResult.won ? "#c8e6c9" : "#ffcdd2", border: `2px solid ${lastResult.won ? P.green : P.red}`, borderRadius: 4, padding: "7px 10px", marginBottom: 10, fontSize: 11 }}>
@@ -847,6 +1066,7 @@ export default function Game() {
   if (screen === "gymSelect") {
     const firstUnbeaten      = stats.gymBeaten.findIndex(b => !b);
     const firstUnbeatenElite = stats.eliteFourBeaten.findIndex(b => !b);
+    const highestPartyLv = Math.max(...stats.party.map((p) => xpToLevel(p.xp)));
     return (
       <div style={wrap}>
         <Card>
@@ -885,7 +1105,7 @@ export default function Game() {
                       style={{ ...btnBase, textAlign: "left", padding: "8px 11px", fontSize: 11, lineHeight: 1.7, background: beaten ? "#3a2a5a" : unlocked && isNext ? "#4a148c" : "#333", color: beaten ? "#ce93d8" : unlocked ? "#fff" : "#888", cursor: unlocked && !beaten ? "pointer" : "not-allowed", boxShadow: beaten || !unlocked ? "none" : `3px 3px 0 ${P.border}` }}>
                       <div>{beaten ? "✅" : unlocked ? el.enemyEmoji : "🔒"} <b>ELITE {i + 1}:</b> {el.name} — {el.title}</div>
                       <div style={{ fontSize: 10, color: beaten ? "#ce93d8" : unlocked ? "#e1bee7" : "#555" }}>
-                        {el.enemyName} | Foe Lv {el.foeLevel} | Mixed Topics | {ELITE_WIN_COINS} AC
+                        {el.enemyName} | Foe Lv {highestPartyLv + i + 1} | Mixed Topics | {ELITE_WIN_COINS} AC
                         {beaten ? "  ✓ DEFEATED" : isNext ? "  ← CHALLENGE" : "  🔒 LOCKED"}
                       </div>
                     </button>
@@ -924,7 +1144,7 @@ export default function Game() {
               return (
                 <button key={i} onClick={() => { if (!isActive) setStats(s => s ? { ...s, activeIndex: i } : s); }}
                   style={{ ...btnBase, display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", fontSize: 12, lineHeight: 1.7, background: isActive ? member.color + "cc" : P.darkBg, color: "#fff", cursor: isActive ? "default" : "pointer", outline: isActive ? `3px solid ${P.gold}` : "none", outlineOffset: 2 }}>
-                  <AlgemonSVG type={member.baseType} stage={stg} size={44} isEnemy={false} animate={false} />
+                  <AlgemonSVG type={member.baseType} stage={stg} speciesId={member.baseType === "Legendary" ? DOUBLE_STAR_SPECIES_ID : undefined} size={44} isEnemy={false} animate={false} />
                   <div style={{ textAlign: "left" }}>
                     <b>{mName}</b>
                     {isActive && <span style={{ marginLeft: 8, fontSize: 10, color: P.gold }}>★ ACTIVE</span>}
@@ -1016,7 +1236,7 @@ export default function Game() {
       const isActive   = kind === "party" && idx === stats.activeIndex;
       return (
         <div style={{ background: isSelected ? "#2e7d32" : isActive ? "#1a3a1a" : P.logBg, border: `2px solid ${isSelected ? P.gold : P.border}`, borderRadius: 6, padding: "8px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-          <AlgemonSVG type={m.baseType} stage={stg} size={36} isEnemy={false} animate={false} />
+          <AlgemonSVG type={m.baseType} stage={stg} speciesId={m.baseType === "Legendary" ? DOUBLE_STAR_SPECIES_ID : undefined} size={36} isEnemy={false} animate={false} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: P.gold, fontSize: 11, fontWeight: "bold" }}>
               {mEmoji} {mName} {isActive && <span style={{ color: "#a0d878", fontSize: 9 }}>★ACT</span>}
@@ -1148,11 +1368,6 @@ export default function Game() {
         <Card>
           <h2 style={{ color: P.border, fontSize: 14, fontWeight: "bold", marginBottom: 10 }}>📊 TRAINER STATUS</h2>
           <PlayerBar goHub />
-          <div style={{ background: P.logBg, border: `2px solid ${P.gold}`, borderRadius: 4, padding: "8px 12px", marginBottom: 10 }}>
-            <div style={{ fontSize: 10, color: P.logText, marginBottom: 3, fontWeight: "bold" }}>SAVE CODE</div>
-            <div style={{ color: P.gold, fontSize: 11, fontWeight: "bold", wordBreak: "break-all", marginBottom: 6 }}>{buildSaveCode(stats)}</div>
-            <button onClick={() => navigator.clipboard?.writeText(buildSaveCode(stats))} style={{ ...btnLight, fontSize: 10, padding: "4px 10px" }}>📋 COPY</button>
-          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
             {[
               { label: "Level",          value: `LV ${lv} (Stage ${currentStage})` },
@@ -1170,15 +1385,21 @@ export default function Game() {
               </div>
             ))}
           </div>
-          <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "8px 12px", marginBottom: 8 }}>
-            <div style={{ color: P.light, fontSize: 11, fontWeight: "bold", marginBottom: 6 }}>📖 ALGEMON DEX — {collected.length}/24</div>
+          {stats.dseScholar && (
+            <div style={{ background: `linear-gradient(90deg, #2d2508, #5c4a0a)`, border: `2px solid ${P.gold}`, borderRadius: 4, padding: "8px 12px", marginBottom: 10, textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: "#fff9c4", fontWeight: "bold", letterSpacing: 1 }}>DSE SCHOLAR</div>
+              <div style={{ fontSize: 9, color: P.gold, marginTop: 2 }}>Honoured trainer — you met Double-Star on the long road.</div>
+            </div>
+          )}
+          <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "8px 12px", marginBottom: 10 }}>
+            <div style={{ color: P.light, fontSize: 11, fontWeight: "bold", marginBottom: 6 }}>📖 ALGEMON DEX — {collected.length}/{SPECIES_LIST.length}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {SPECIES_LIST.map(sp => {
                 const caught = stats.caughtSpecies.includes(sp.id);
                 return (
                   <div key={sp.id} title={caught ? `${sp.name} · ${sp.topic}` : "??? (not yet caught)"}
                     style={{ opacity: caught ? 1 : 0.18, filter: caught ? "none" : "grayscale(1) brightness(0.4)", cursor: "default" }}>
-                    <AlgemonSVG type={sp.type} stage={sp.stage} size={34} animate={false} />
+                    <AlgemonSVG type={sp.type} stage={sp.stage} speciesId={sp.id === DOUBLE_STAR_SPECIES_ID ? DOUBLE_STAR_SPECIES_ID : undefined} size={34} animate={false} />
                   </div>
                 );
               })}
@@ -1189,6 +1410,11 @@ export default function Game() {
               </div>
             )}
           </div>
+          <div style={{ background: P.logBg, border: `2px solid ${P.gold}`, borderRadius: 4, padding: "8px 12px", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: P.logText, marginBottom: 3, fontWeight: "bold" }}>SAVE CODE</div>
+            <div style={{ color: P.gold, fontSize: 11, fontWeight: "bold", wordBreak: "break-all", marginBottom: 6 }}>{buildSaveCode(stats)}</div>
+            <button onClick={() => navigator.clipboard?.writeText(buildSaveCode(stats))} style={{ ...btnLight, fontSize: 10, padding: "4px 10px" }}>📋 COPY</button>
+          </div>
           <div style={{ background: P.darkBg, border: `2px solid ${P.border}`, borderRadius: 4, padding: "8px 12px" }}>
             <div style={{ color: P.light, fontSize: 11, fontWeight: "bold", marginBottom: 4 }}>🎒 BAG</div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -1197,6 +1423,57 @@ export default function Game() {
               <StatBadge label="🧪 Potions"  value={stats.inventory.potions} />
             </div>
           </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // WRONG ANSWER REVIEW
+  // ══════════════════════════════════════════════════════════════
+  if (screen === "mistakes") {
+    const latestFirst = [...stats.wrongAttempts].reverse();
+    return (
+      <div style={wrap}>
+        <Card>
+          <h2 style={{ color: P.border, fontSize: 14, fontWeight: "bold", marginBottom: 10 }}>🧠 WRONG ANSWER REVIEW</h2>
+          <PlayerBar goHub />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ color: P.border, fontSize: 10 }}>
+              Mistakes saved: <b>{stats.wrongAttempts.length}</b> (most recent first)
+            </div>
+            <button
+              onClick={() => setStats(s => s ? { ...s, wrongAttempts: [] } : s)}
+              disabled={stats.wrongAttempts.length === 0}
+              style={{ ...(stats.wrongAttempts.length === 0 ? btnDisabled : btnLight), fontSize: 10, padding: "4px 8px" }}
+            >
+              CLEAR
+            </button>
+          </div>
+          {latestFirst.length === 0 ? (
+            <div style={{ background: P.logBg, border: `2px solid ${P.border}`, borderRadius: 5, padding: "12px 10px", textAlign: "center", color: "#a0d878", fontSize: 11 }}>
+              No wrong answers yet. Keep battling!
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 7, maxHeight: 420, overflowY: "auto" }}>
+              {latestFirst.map((w, i) => (
+                <div key={i} style={{ background: P.logBg, border: `2px solid ${P.border}`, borderRadius: 5, padding: "8px 10px" }}>
+                  <div style={{ color: P.gold, fontSize: 10, fontWeight: "bold", marginBottom: 4 }}>
+                    {w.mode === "mc" ? "MC" : "CATCH SA"} · {w.topic}
+                  </div>
+                  <div style={{ color: P.light, fontSize: 10, marginBottom: 4 }}>
+                    {w.question.includes("$") ? <MathText>{w.question}</MathText> : w.question}
+                  </div>
+                  <div style={{ color: "#a5d6a7", fontSize: 10, marginBottom: 3 }}>
+                    Correct answer: {w.correctAnswer}
+                  </div>
+                  <div style={{ color: "#90caf9", fontSize: 10, lineHeight: 1.5 }}>
+                    Step-by-step: {w.solution}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     );
@@ -1302,12 +1579,12 @@ export default function Game() {
           </p>
           <div style={{ display: "flex", justifyContent: "space-around", alignItems: "flex-end", background: P.darkBg, border: `3px solid ${P.border}`, borderRadius: 6, padding: "10px 6px", marginBottom: 10 }}>
             <div style={{ textAlign: "center" }}>
-              <AlgemonSVG type={act.baseType} stage={getStage(lv)} size={72} isEnemy={false} fainted={!won} animate={false} />
+              <AlgemonSVG type={act.baseType} stage={getStage(lv)} speciesId={act.baseType === "Legendary" ? DOUBLE_STAR_SPECIES_ID : undefined} size={72} isEnemy={false} fainted={!won} animate={false} />
               <div style={{ fontSize: 9, color: P.light, marginTop: 3 }}>{stats.name}</div>
             </div>
             <div style={{ fontSize: 18, color: P.light, paddingBottom: 14 }}>VS</div>
             <div style={{ textAlign: "center" }}>
-              <AlgemonSVG type={ctx.enemyType} stage={ctx.enemyStage} size={80} isEnemy fainted={won && !r?.caught} animate={false} />
+              <AlgemonSVG type={ctx.enemyType} stage={ctx.enemyStage} speciesId={ctx.speciesId === DOUBLE_STAR_SPECIES_ID ? DOUBLE_STAR_SPECIES_ID : undefined} size={80} isEnemy fainted={won && !r?.caught} animate={false} />
               <div style={{ fontSize: 9, color: P.light, marginTop: 3 }}>{ctx.enemyName}</div>
             </div>
           </div>
@@ -1316,6 +1593,7 @@ export default function Game() {
               {r.xpGained > 0    && <div style={{ color: P.light }}>+{r.xpGained} XP</div>}
               {r.coinsGained > 0 && <div style={{ color: P.gold }}>+{r.coinsGained} Algecoins</div>}
               {r.badgeEarned     && <div style={{ color: P.gold }}>+1 Badge earned!</div>}
+              {r.dseScholarUnlocked && <div style={{ color: P.gold }}>DSE Scholar badge — profile updated!</div>}
               {r.eliteId !== undefined && won && !r.caught && <div style={{ color: "#ce93d8" }}>Elite {r.eliteId! + 1} defeated!</div>}
               {r.newLv           && <div style={{ color: "#90caf9" }}>★ Level Up! Now Level {r.newLv}!</div>}
               {pendingEvolution  && <div style={{ color: P.gold }}>✨ Your Algemon are evolving…</div>}
@@ -1367,14 +1645,14 @@ export default function Game() {
               <div style={{ flex: 1, paddingRight: 7 }}>
                 <div style={{ fontSize: 11, color: P.light, marginBottom: 3, fontWeight: "bold" }}>
                   {ctx.enemyName} (Lv {foeLvShow})
-                  {catchable && enemyHp > 0 && <span style={{ color: "#ff7043", marginLeft: 5 }}>★ CATCHABLE!</span>}
+                  {ctx.mode === "wild" && catchable && enemyHp > 0 && <span style={{ color: "#ff7043", marginLeft: 5 }}>★ CATCHABLE!</span>}
                 </div>
                 <HpBar hp={enemyHp} maxHp={ENEMY_MAX_HP} label="" />
               </div>
-              <AlgemonSVG type={ctx.enemyType} stage={ctx.enemyStage} size={88} isEnemy fainted={enemyHp <= 0} animate />
+              <AlgemonSVG type={ctx.enemyType} stage={ctx.enemyStage} speciesId={ctx.speciesId === DOUBLE_STAR_SPECIES_ID ? DOUBLE_STAR_SPECIES_ID : undefined} size={88} isEnemy fainted={enemyHp <= 0} animate />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <AlgemonSVG type={act.baseType} stage={currentStage} size={76} isEnemy={false} fainted={playerHp <= 0} animate />
+              <AlgemonSVG type={act.baseType} stage={currentStage} speciesId={act.baseType === "Legendary" ? DOUBLE_STAR_SPECIES_ID : undefined} size={76} isEnemy={false} fainted={playerHp <= 0} animate />
               <div style={{ flex: 1, paddingLeft: 7 }}>
                 <div style={{ fontSize: 10, color: P.light, marginBottom: 2, fontWeight: "bold" }}>
                   {stats.name}'s {activeName} (Lv {lv}{defBonus > 0 ? ` 🛡️${Math.round(defBonus * 100)}%` : ""})

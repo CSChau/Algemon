@@ -2,15 +2,18 @@
 // ALGEMON SVG SPRITES — 24 species (8 types × 3 stages)
 // Retro pixel-art aesthetic | viewBox 0 0 80 80 | center (40,40)
 // ══════════════════════════════════════════════════════════════
-import { AlgemonType } from "../data/gameData";
+import type { ReactElement } from "react";
+import { AlgemonType, DOUBLE_STAR_SPECIES_ID } from "../data/gameData";
 
 interface AlgemonSVGProps {
-  type:     AlgemonType;
-  stage:    0 | 1 | 2;
-  size?:    number;
-  isEnemy?: boolean;
-  fainted?: boolean;
-  animate?: boolean;
+  type:       AlgemonType;
+  stage:      0 | 1 | 2;
+  /** When set (e.g. Double-Star legendary), renders that sprite instead of type/stage default. */
+  speciesId?: string;
+  size?:      number;
+  isEnemy?:   boolean;
+  fainted?:   boolean;
+  animate?:   boolean;
 }
 
 // ── Math symbol aura orbit (Stage 2) ─────────────────────────
@@ -23,12 +26,13 @@ const MATH_SYMBOLS: Record<AlgemonType, [string, string, string]> = {
   Ground:   ["d",  "m", "∠"],
   Fighting: ["%",  "÷", "∶"],
   Electric: ["=",  "x", "y"],
+  Legendary: ["5",  "★", "★"],
 };
 
 const AURA_COLORS: Record<AlgemonType, string> = {
   Fire:     "#ffee55", Water:    "#88eeff", Grass:    "#ccff66",
   Ice:      "#ddeeff", Flying:   "#ccaaff", Ground:   "#ffddaa",
-  Fighting: "#ffaaaa", Electric: "#fff066",
+  Fighting: "#ffaaaa", Electric: "#fff066", Legendary: "#ffd700",
 };
 
 function MathOrbit({ type }: { type: AlgemonType }) {
@@ -57,19 +61,27 @@ function MathOrbit({ type }: { type: AlgemonType }) {
 function Ignit() {
   return (
     <g>
-      <ellipse cx="40" cy="51" rx="13" ry="12" fill="#ff6600"/>
-      <polygon points="40,13 53,38 27,38" fill="#ff4400"/>
-      <polygon points="40,17 50,34 30,34" fill="#ff7700"/>
-      <polygon points="40,21 46,32 34,32" fill="#ffcc00"/>
-      <rect x="30" y="45" width="6" height="6" fill="#fff"/>
-      <rect x="44" y="45" width="6" height="6" fill="#fff"/>
-      <rect x="31" y="46" width="4" height="4" fill="#220000"/>
-      <rect x="45" y="46" width="4" height="4" fill="#220000"/>
-      <rect x="31" y="46" width="2" height="2" fill="#ff3300"/>
-      <rect x="45" y="46" width="2" height="2" fill="#ff3300"/>
-      <rect x="33" y="57" width="14" height="3" fill="#cc3300"/>
-      <rect x="30" y="61" width="8" height="4" fill="#cc4400"/>
-      <rect x="42" y="61" width="8" height="4" fill="#cc4400"/>
+      {/* Potentic — red panda base, binary-ring tail */}
+      <ellipse cx="40" cy="49" rx="15" ry="14" fill="#c2471f"/>
+      <ellipse cx="40" cy="42" rx="12" ry="10" fill="#d45a2d"/>
+      <polygon points="30,34 34,24 38,34" fill="#f0c9a0"/>
+      <polygon points="50,34 46,24 42,34" fill="#f0c9a0"/>
+      <ellipse cx="40" cy="44" rx="8" ry="6" fill="#f3d8bc"/>
+      <circle cx="35" cy="43" r="2.4" fill="#220000"/>
+      <circle cx="45" cy="43" r="2.4" fill="#220000"/>
+      <circle cx="36" cy="42" r="0.8" fill="#fff"/>
+      <circle cx="46" cy="42" r="0.8" fill="#fff"/>
+      <ellipse cx="40" cy="47" rx="2.4" ry="1.6" fill="#9b3d20"/>
+      <path d="M 36,50 Q 40,53 44,50" stroke="#7a2812" strokeWidth="1.8" fill="none"/>
+      {/* Fluffy tail with 0/1 rings */}
+      <ellipse cx="56" cy="54" rx="9" ry="12" fill="#f28d5c" transform="rotate(28 56 54)"/>
+      <ellipse cx="56" cy="48" rx="6.2" ry="1.8" fill="#f8d1b0" transform="rotate(28 56 48)"/>
+      <ellipse cx="57" cy="53" rx="6.2" ry="1.8" fill="#f8d1b0" transform="rotate(28 57 53)"/>
+      <ellipse cx="58" cy="58" rx="6.2" ry="1.8" fill="#f8d1b0" transform="rotate(28 58 58)"/>
+      <text x="53" y="50" fontSize="4.8" fill="#7a2812" fontFamily="monospace" fontWeight="bold">0</text>
+      <text x="56" y="56" fontSize="4.8" fill="#7a2812" fontFamily="monospace" fontWeight="bold">1</text>
+      <rect x="31" y="60" width="7" height="6" rx="2" fill="#9b3d20"/>
+      <rect x="42" y="60" width="7" height="6" rx="2" fill="#9b3d20"/>
     </g>
   );
 }
@@ -143,23 +155,24 @@ function Ignithelio() {
 function Aquat() {
   return (
     <g>
-      {/* Teardrop body */}
-      <ellipse cx="40" cy="50" rx="13" ry="14" fill="#1166cc"/>
-      <polygon points="40,18 53,44 27,44" fill="#1166cc"/>
-      <ellipse cx="40" cy="30" rx="10" ry="12" fill="#1166cc"/>
-      {/* Shine */}
-      <ellipse cx="35" cy="24" rx="4" ry="5" fill="#44aaff" opacity="0.7"/>
-      {/* Eyes */}
-      <circle cx="34" cy="44" r="5" fill="#fff"/>
-      <circle cx="46" cy="44" r="5" fill="#fff"/>
-      <circle cx="34" cy="44" r="3" fill="#002244"/>
-      <circle cx="46" cy="44" r="3" fill="#002244"/>
-      <circle cx="33" cy="43" r="1" fill="#fff"/>
-      <circle cx="45" cy="43" r="1" fill="#fff"/>
-      {/* Mouth */}
-      <rect x="35" y="54" width="10" height="2" fill="#003388" rx="1"/>
-      {/* Base */}
-      <ellipse cx="40" cy="63" rx="11" ry="4" fill="#0055bb"/>
+      {/* Varidrop — sea otter with variable shell */}
+      <ellipse cx="40" cy="50" rx="14" ry="16" fill="#7a5635"/>
+      <ellipse cx="40" cy="44" rx="11" ry="9" fill="#8d6641"/>
+      <circle cx="33" cy="43" r="2.4" fill="#1f1208"/>
+      <circle cx="47" cy="43" r="2.4" fill="#1f1208"/>
+      <circle cx="34" cy="42" r="0.8" fill="#fff"/>
+      <circle cx="48" cy="42" r="0.8" fill="#fff"/>
+      <ellipse cx="40" cy="47" rx="2.2" ry="1.4" fill="#2f1a0c"/>
+      <path d="M 36,50 Q 40,53 44,50" stroke="#2f1a0c" strokeWidth="1.6" fill="none"/>
+      <ellipse cx="28" cy="52" rx="5" ry="4" fill="#8d6641"/>
+      <ellipse cx="52" cy="52" rx="5" ry="4" fill="#8d6641"/>
+      {/* Variable shell changes color */}
+      <ellipse cx="40" cy="56" rx="8" ry="6" fill="#5bc0eb">
+        <animate attributeName="fill" values="#5bc0eb;#7ed957;#ffd166;#5bc0eb" dur="3.2s" repeatCount="indefinite" />
+      </ellipse>
+      <text x="36.3" y="58.4" fontSize="6.4" fill="#173b52" fontFamily="monospace" fontWeight="bold">x</text>
+      <rect x="32" y="63" width="6" height="4" rx="2" fill="#5f4028"/>
+      <rect x="42" y="63" width="6" height="4" rx="2" fill="#5f4028"/>
     </g>
   );
 }
@@ -225,25 +238,18 @@ function Aquasolv() {
 function Phyllon() {
   return (
     <g>
-      {/* Body */}
-      <circle cx="40" cy="50" r="14" fill="#22aa22"/>
-      {/* Single leaf */}
-      <ellipse cx="40" cy="30" rx="10" ry="7" fill="#55cc33" transform="rotate(-15 40 30)"/>
-      <ellipse cx="40" cy="30" rx="10" ry="7" fill="#88ee44" transform="rotate(-15 40 30)" opacity="0.5"/>
-      <line x1="40" y1="36" x2="40" y2="28" stroke="#115511" strokeWidth="2"/>
-      {/* Stem */}
-      <rect x="38" y="35" width="4" height="6" fill="#664422"/>
-      {/* Eyes */}
-      <circle cx="34" cy="48" r="4" fill="#fff"/>
-      <circle cx="46" cy="48" r="4" fill="#fff"/>
-      <circle cx="34" cy="48" r="2.5" fill="#001100"/>
-      <circle cx="46" cy="48" r="2.5" fill="#001100"/>
-      <circle cx="33" cy="47" r="1" fill="#fff"/>
-      <circle cx="45" cy="47" r="1" fill="#fff"/>
-      {/* Happy mouth */}
-      <path d="M 35,54 Q 40,58 45,54" stroke="#115511" strokeWidth="2" fill="none"/>
-      {/* Base */}
-      <ellipse cx="40" cy="63" rx="10" ry="3" fill="#1a8a1a"/>
+      {/* Factite — armadillo with geometric block armor */}
+      <ellipse cx="40" cy="52" rx="15" ry="12" fill="#5f6b76"/>
+      <ellipse cx="40" cy="50" rx="12" ry="9" fill="#7f8a94"/>
+      <polygon points="30,45 36,41 42,45 36,49" fill="#9aa6b1"/>
+      <polygon points="38,45 44,41 50,45 44,49" fill="#8f9ca8"/>
+      <polygon points="34,50 40,46 46,50 40,54" fill="#a8b3bd"/>
+      <ellipse cx="40" cy="58" rx="8" ry="5" fill="#b6a186"/>
+      <circle cx="36" cy="56" r="1.8" fill="#20140c"/>
+      <circle cx="44" cy="56" r="1.8" fill="#20140c"/>
+      <path d="M 37,60 Q 40,62 43,60" stroke="#7c674e" strokeWidth="1.4" fill="none"/>
+      <rect x="28" y="61" width="6" height="5" rx="2" fill="#5f6b76"/>
+      <rect x="46" y="61" width="6" height="5" rx="2" fill="#5f6b76"/>
     </g>
   );
 }
@@ -320,23 +326,19 @@ function Phyllroot() {
 function Cryocub() {
   return (
     <g>
-      {/* Icy cube body */}
-      <rect x="26" y="34" width="28" height="28" rx="4" fill="#aaddff"/>
-      <rect x="28" y="36" width="24" height="24" rx="3" fill="#cceeff"/>
-      {/* Ice facet highlights */}
-      <polygon points="28,36 42,36 28,50" fill="#ddf4ff" opacity="0.7"/>
-      {/* Eyes */}
-      <rect x="30" y="40" width="7" height="7" fill="#4488cc"/>
-      <rect x="43" y="40" width="7" height="7" fill="#4488cc"/>
-      <rect x="32" y="42" width="3" height="3" fill="#fff"/>
-      <rect x="45" y="42" width="3" height="3" fill="#fff"/>
-      {/* Snowflake on forehead */}
-      <rect x="38" y="36" width="4" height="10" fill="#88ccff" opacity="0.8"/>
-      <rect x="34" y="40" width="12" height="3" fill="#88ccff" opacity="0.8"/>
-      {/* Mouth (tiny) */}
-      <rect x="35" y="55" width="10" height="2" fill="#6699cc"/>
-      {/* Bottom */}
-      <ellipse cx="40" cy="63" rx="13" ry="3" fill="#88bbdd"/>
+      {/* Limitless — snowy owl with < and > talons */}
+      <ellipse cx="40" cy="48" rx="14" ry="15" fill="#ecf3ff"/>
+      <ellipse cx="40" cy="44" rx="11" ry="10" fill="#ffffff"/>
+      <circle cx="34" cy="43" r="3.8" fill="#ffd54f"/>
+      <circle cx="46" cy="43" r="3.8" fill="#ffd54f"/>
+      <circle cx="34" cy="43" r="2.2" fill="#1b2430"/>
+      <circle cx="46" cy="43" r="2.2" fill="#1b2430"/>
+      <polygon points="40,47 36,52 44,52" fill="#f7b733"/>
+      <path d="M 30,52 L24,56 L30,59" stroke="#d5e5ff" strokeWidth="3" fill="none"/>
+      <path d="M 50,52 L56,56 L50,59" stroke="#d5e5ff" strokeWidth="3" fill="none"/>
+      {/* inequality talons */}
+      <text x="30" y="67" fontSize="8" fill="#9cc3ff" fontFamily="monospace" fontWeight="bold">&lt;</text>
+      <text x="45" y="67" fontSize="8" fill="#9cc3ff" fontFamily="monospace" fontWeight="bold">&gt;</text>
     </g>
   );
 }
@@ -424,26 +426,20 @@ function Cryobound() {
 function Aeron() {
   return (
     <g>
-      {/* Wings */}
-      <polygon points="40,42 22,32 18,50 32,52" fill="#6644cc"/>
-      <polygon points="40,42 58,32 62,50 48,52" fill="#6644cc"/>
-      <polygon points="22,32 18,50 28,44" fill="#8866ee"/>
-      <polygon points="58,32 62,50 52,44" fill="#8866ee"/>
-      {/* Body */}
-      <ellipse cx="40" cy="50" rx="11" ry="13" fill="#7755dd"/>
-      {/* Head */}
-      <circle cx="40" cy="38" r="10" fill="#7755dd"/>
-      {/* Beak */}
-      <polygon points="40,36 35,41 45,41" fill="#ffcc00"/>
-      {/* Eyes */}
-      <circle cx="35" cy="35" r="4" fill="#fff"/>
-      <circle cx="45" cy="35" r="4" fill="#fff"/>
-      <circle cx="35" cy="35" r="2.5" fill="#220044"/>
-      <circle cx="45" cy="35" r="2.5" fill="#220044"/>
-      <circle cx="34" cy="34" r="1" fill="#fff"/>
-      <circle cx="44" cy="34" r="1" fill="#fff"/>
-      {/* Tail */}
-      <polygon points="34,62 40,56 46,62 40,70" fill="#5533bb"/>
+      {/* Polylite — sugar glider, bracket membrane */}
+      <ellipse cx="40" cy="50" rx="11" ry="12" fill="#b9a38f"/>
+      <circle cx="40" cy="39" r="11" fill="#c6b19a"/>
+      <path d="M 22,34 Q 16,50 22,64" stroke="#7e6b57" strokeWidth="4" fill="none"/>
+      <path d="M 58,34 Q 64,50 58,64" stroke="#7e6b57" strokeWidth="4" fill="none"/>
+      <path d="M 28,40 Q 22,52 28,60" stroke="#d7c7b7" strokeWidth="6" fill="none" opacity="0.9"/>
+      <path d="M 52,40 Q 58,52 52,60" stroke="#d7c7b7" strokeWidth="6" fill="none" opacity="0.9"/>
+      <circle cx="34" cy="38" r="4.8" fill="#fff"/>
+      <circle cx="46" cy="38" r="4.8" fill="#fff"/>
+      <circle cx="34" cy="38" r="3.1" fill="#1f1a17"/>
+      <circle cx="46" cy="38" r="3.1" fill="#1f1a17"/>
+      <ellipse cx="40" cy="43" rx="2.2" ry="1.7" fill="#3f332b"/>
+      <path d="M 36,46 Q 40,49 44,46" stroke="#5f4c40" strokeWidth="1.6" fill="none"/>
+      <ellipse cx="40" cy="65" rx="3" ry="5" fill="#8a7460"/>
     </g>
   );
 }
@@ -523,32 +519,18 @@ function Aeroremain() {
 function Terron() {
   return (
     <g>
-      {/* Rocky shell pieces on top */}
-      <polygon points="28,26 36,34 22,36" fill="#553311"/>
-      <polygon points="40,22 48,34 32,34" fill="#664422"/>
-      <polygon points="52,26 58,36 44,36" fill="#553311"/>
-      {/* Body */}
-      <circle cx="40" cy="52" r="16" fill="#885533"/>
-      <circle cx="40" cy="52" r="13" fill="#996644"/>
-      {/* Snout */}
-      <ellipse cx="40" cy="60" rx="7" ry="5" fill="#aa7755"/>
-      <circle cx="38" cy="60" r="2" fill="#442211"/>
-      <circle cx="42" cy="60" r="2" fill="#442211"/>
-      {/* Eyes */}
-      <circle cx="31" cy="48" r="5" fill="#fff"/>
-      <circle cx="49" cy="48" r="5" fill="#fff"/>
-      <circle cx="31" cy="48" r="3" fill="#220000"/>
-      <circle cx="49" cy="48" r="3" fill="#220000"/>
-      <circle cx="30" cy="47" r="1" fill="#fff"/>
-      <circle cx="48" cy="47" r="1" fill="#fff"/>
-      {/* Paws */}
-      <rect x="24" y="62" width="10" height="6" rx="3" fill="#774433"/>
-      <rect x="46" y="62" width="10" height="6" rx="3" fill="#774433"/>
-      {/* Claws */}
-      <rect x="25" y="66" width="3" height="4" rx="1" fill="#553311"/>
-      <rect x="29" y="67" width="3" height="4" rx="1" fill="#553311"/>
-      <rect x="47" y="66" width="3" height="4" rx="1" fill="#553311"/>
-      <rect x="51" y="67" width="3" height="4" rx="1" fill="#553311"/>
+      {/* Radixy — hedgehog with sqrt quills */}
+      <ellipse cx="40" cy="52" rx="15" ry="12" fill="#8a6849"/>
+      <ellipse cx="40" cy="55" rx="9" ry="7" fill="#c7a27e"/>
+      <circle cx="36" cy="52" r="2.1" fill="#23170f"/>
+      <circle cx="44" cy="52" r="2.1" fill="#23170f"/>
+      <ellipse cx="40" cy="56" rx="1.8" ry="1.4" fill="#5f4028"/>
+      {[24,30,36,42,48,54].map((x, i) => (
+        <text key={i} x={x} y={36 + (i % 2) * 2} fontSize="6.5" fill="#5b4633" fontFamily="monospace">√</text>
+      ))}
+      <path d="M 36,59 Q 40,62 44,59" stroke="#6d4f37" strokeWidth="1.4" fill="none"/>
+      <rect x="29" y="62" width="7" height="5" rx="2" fill="#7a5a3d"/>
+      <rect x="44" y="62" width="7" height="5" rx="2" fill="#7a5a3d"/>
     </g>
   );
 }
@@ -628,32 +610,22 @@ function Terracoord() {
 function Pugn() {
   return (
     <g>
-      {/* Body */}
-      <circle cx="40" cy="48" r="15" fill="#cc3322"/>
-      {/* Fists */}
-      <rect x="16" y="42" width="14" height="14" rx="5" fill="#cc3322"/>
-      <rect x="18" y="44" width="10" height="10" rx="3" fill="#ee5544"/>
-      <rect x="50" y="42" width="14" height="14" rx="5" fill="#cc3322"/>
-      <rect x="52" y="44" width="10" height="10" rx="3" fill="#ee5544"/>
-      {/* Knuckle lines */}
-      <rect x="19" y="50" width="2" height="4" fill="#aa2211" rx="1"/>
-      <rect x="22" y="50" width="2" height="4" fill="#aa2211" rx="1"/>
-      <rect x="25" y="50" width="2" height="4" fill="#aa2211" rx="1"/>
-      <rect x="53" y="50" width="2" height="4" fill="#aa2211" rx="1"/>
-      <rect x="56" y="50" width="2" height="4" fill="#aa2211" rx="1"/>
-      <rect x="59" y="50" width="2" height="4" fill="#aa2211" rx="1"/>
-      {/* Eyes */}
-      <rect x="31" y="42" width="7" height="8" fill="#fff"/>
-      <rect x="42" y="42" width="7" height="8" fill="#fff"/>
-      <rect x="32" y="43" width="5" height="6" fill="#220000"/>
-      <rect x="43" y="43" width="5" height="6" fill="#220000"/>
-      <rect x="33" y="44" width="2" height="2" fill="#ff5544"/>
-      <rect x="44" y="44" width="2" height="2" fill="#ff5544"/>
-      {/* Determined mouth */}
-      <rect x="33" y="56" width="14" height="3" fill="#881111"/>
-      {/* Legs */}
-      <rect x="30" y="62" width="9" height="7" rx="2" fill="#aa2211"/>
-      <rect x="41" y="62" width="9" height="7" rx="2" fill="#aa2211"/>
+      {/* Remanant — axolotl, dotted remainder gills */}
+      <ellipse cx="40" cy="50" rx="15" ry="13" fill="#f08aa0"/>
+      <ellipse cx="40" cy="44" rx="12" ry="10" fill="#f7a8ba"/>
+      <circle cx="35" cy="44" r="2.5" fill="#3d2230"/>
+      <circle cx="45" cy="44" r="2.5" fill="#3d2230"/>
+      <circle cx="36" cy="43" r="0.8" fill="#fff"/>
+      <circle cx="46" cy="43" r="0.8" fill="#fff"/>
+      <path d="M 35,49 Q 40,53 45,49" stroke="#7a3d52" strokeWidth="1.7" fill="none"/>
+      <circle cx="24" cy="41" r="2.1" fill="#ff9db4"/>
+      <circle cx="20" cy="45" r="1.9" fill="#ff9db4"/>
+      <circle cx="24" cy="49" r="2.1" fill="#ff9db4"/>
+      <circle cx="56" cy="41" r="2.1" fill="#ff9db4"/>
+      <circle cx="60" cy="45" r="1.9" fill="#ff9db4"/>
+      <circle cx="56" cy="49" r="2.1" fill="#ff9db4"/>
+      <rect x="30" y="61" width="7" height="5" rx="2" fill="#e37f96"/>
+      <rect x="43" y="61" width="7" height="5" rx="2" fill="#e37f96"/>
     </g>
   );
 }
@@ -742,25 +714,23 @@ function Pugnratio() {
 function Volt() {
   return (
     <g>
-      {/* Lightning bolts - 4 directions */}
-      {/* North */}
-      <polygon points="40,12 36,24 40,22 36,36 44,36 40,22 44,24" fill="#ffcc00"/>
-      {/* South */}
-      <polygon points="40,68 36,56 40,58 36,44 44,44 40,58 44,56" fill="#ffcc00"/>
-      {/* West */}
-      <polygon points="12,40 24,36 22,40 36,36 36,44 22,40 24,44" fill="#ffcc00"/>
-      {/* East */}
-      <polygon points="68,40 56,36 58,40 44,36 44,44 58,40 56,44" fill="#ffcc00"/>
-      {/* Body */}
-      <circle cx="40" cy="40" r="16" fill="#ffdd00"/>
-      <circle cx="40" cy="40" r="12" fill="#ffee55"/>
-      {/* Spark eyes */}
-      <polygon points="31,36 35,40 31,44 29,40" fill="#1a1a00"/>
-      <polygon points="49,36 45,40 49,44 51,40" fill="#1a1a00"/>
-      <polygon points="31,38 33,40 31,42 30,40" fill="#ffffaa"/>
-      <polygon points="49,38 47,40 49,42 50,40" fill="#ffffaa"/>
-      {/* Smile */}
-      <path d="M 34,46 Q 40,52 46,46" stroke="#cc8800" strokeWidth="2.5" fill="none"/>
+      {/* Logispark — fennec fox with logic-signal ears */}
+      <ellipse cx="40" cy="51" rx="13" ry="12" fill="#e6b77f"/>
+      <circle cx="40" cy="42" r="10" fill="#f0c690"/>
+      <polygon points="28,37 23,19 36,33" fill="#f0c690"/>
+      <polygon points="52,37 57,19 44,33" fill="#f0c690"/>
+      <polygon points="29,35 26,24 34,32" fill="#ffdcae"/>
+      <polygon points="51,35 54,24 46,32" fill="#ffdcae"/>
+      <line x1="28" y1="22" x2="20" y2="16" stroke="#ffd54f" strokeWidth="1.5"/>
+      <line x1="52" y1="22" x2="60" y2="16" stroke="#ffd54f" strokeWidth="1.5"/>
+      <circle cx="20" cy="16" r="2" fill="#ffe680"/>
+      <circle cx="60" cy="16" r="2" fill="#ffe680"/>
+      <circle cx="35" cy="42" r="2.2" fill="#25160b"/>
+      <circle cx="45" cy="42" r="2.2" fill="#25160b"/>
+      <ellipse cx="40" cy="46" rx="2.2" ry="1.5" fill="#7a4d28"/>
+      <path d="M 36,48.5 Q 40,51.5 44,48.5" stroke="#7a4d28" strokeWidth="1.5" fill="none"/>
+      <polygon points="31,61 40,57 49,61 40,68" fill="#d9a86f"/>
+      <text x="34.2" y="61.5" fontSize="5.5" fill="#84531d" fontFamily="monospace" fontWeight="bold">f(x)</text>
     </g>
   );
 }
@@ -839,8 +809,46 @@ function Voltsimul() {
   );
 }
 
+// ── Double-Star (hidden legendary): glowing gold 5 ★★ ─────────
+function DoubleStarLegend() {
+  return (
+    <g>
+      <g>
+        <animateTransform
+          attributeName="transform" type="translate" additive="sum"
+          values="0,0; 0,-1.5; 0,0" dur="2.5s" repeatCount="indefinite"
+        />
+        <circle cx="40" cy="40" r="32" fill="none" stroke="#ffd54f" strokeWidth="1.5" opacity="0.45">
+          <animate attributeName="opacity" values="0.35;0.7;0.35" dur="2.2s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="40" cy="40" r="24" fill="#3d2e0a" opacity="0.25" />
+        <text
+          x="22" y="54" fontSize="42" fontWeight="bold" fontFamily="Georgia, 'Times New Roman', serif"
+          fill="#ffe082" stroke="#b8860b" strokeWidth="0.6"
+          style={{ filter: "drop-shadow(0 0 8px #ffd700) drop-shadow(0 0 14px #ffab00)" }}
+        >
+          5
+        </text>
+        <text
+          x="50" y="38" fontSize="16" fontWeight="bold" fill="#fff9c4"
+          style={{ filter: "drop-shadow(0 0 6px #ffd700)" }}
+        >
+          ★
+        </text>
+        <text
+          x="62" y="38" fontSize="16" fontWeight="bold" fill="#fff9c4"
+          style={{ filter: "drop-shadow(0 0 6px #ffd700)" }}
+        >
+          ★
+        </text>
+      </g>
+    </g>
+  );
+}
+
 // ── Sprite lookup ──────────────────────────────────────────────
-const SPRITES: Record<string, () => JSX.Element> = {
+const SPRITES: Record<string, () => ReactElement> = {
+  [DOUBLE_STAR_SPECIES_ID]: DoubleStarLegend,
   ignit: Ignit, ignitor: Ignitor, ignithelio: Ignithelio,
   aquat: Aquat, aquasub: Aquasub, aquasolv: Aquasolv,
   phyllon: Phyllon, phyllfact: Phyllfact, phyllroot: Phyllroot,
@@ -856,6 +864,7 @@ function FallbackSprite({ type }: { type: AlgemonType }) {
   const BODY: Record<AlgemonType, string> = {
     Fire: "#ff6600", Water: "#1166cc", Grass: "#22aa22", Ice: "#aaddff",
     Flying: "#6644cc", Ground: "#885533", Fighting: "#cc3322", Electric: "#ffdd00",
+    Legendary: "#d4af37",
   };
   const col = BODY[type] ?? "#888";
   return (
@@ -871,9 +880,8 @@ function FallbackSprite({ type }: { type: AlgemonType }) {
 }
 
 // ── Main export ───────────────────────────────────────────────
-export function AlgemonSVG({ type, stage, size = 80, isEnemy = false, fainted = false, animate = true }: AlgemonSVGProps) {
-  const speciesId = `${type.toLowerCase()}${stage === 0 ? "" : stage === 1 ? "sub" : "final"}`; // fallback key
-  // Build speciesId from EVOLUTION_DATA stage name (lowercased)
+export function AlgemonSVG({ type, stage, speciesId: speciesOverride, size = 80, isEnemy = false, fainted = false, animate = true }: AlgemonSVGProps) {
+  const fallbackKey = `${type.toLowerCase()}${stage === 0 ? "" : stage === 1 ? "sub" : "final"}`;
   const STAGE_IDS: Record<AlgemonType, [string, string, string]> = {
     Fire:     ["ignit",    "ignitor",   "ignithelio"],
     Water:    ["aquat",    "aquasub",   "aquasolv"],
@@ -883,13 +891,18 @@ export function AlgemonSVG({ type, stage, size = 80, isEnemy = false, fainted = 
     Ground:   ["terron",   "terragrid", "terracoord"],
     Fighting: ["pugn",     "pugnlogic", "pugnratio"],
     Electric: ["volt",     "voltgraph", "voltsimul"],
+    Legendary: [DOUBLE_STAR_SPECIES_ID, DOUBLE_STAR_SPECIES_ID, DOUBLE_STAR_SPECIES_ID],
   };
 
-  const sid      = STAGE_IDS[type]?.[stage] ?? speciesId;
+  const sid =
+    speciesOverride === DOUBLE_STAR_SPECIES_ID || type === "Legendary"
+      ? DOUBLE_STAR_SPECIES_ID
+      : (STAGE_IDS[type]?.[stage] ?? fallbackKey);
   const SpriteFn = SPRITES[sid];
 
   const bobClass  = !animate ? "" : (isEnemy ? "sprite-bob-enemy" : "sprite-bob");
   const transform = isEnemy ? "scale(-1,1) translate(-80,0)" : undefined;
+  const showOrbit = stage === 2 && animate && sid !== DOUBLE_STAR_SPECIES_ID;
 
   return (
     <svg
@@ -908,7 +921,7 @@ export function AlgemonSVG({ type, stage, size = 80, isEnemy = false, fainted = 
     >
       <g transform={transform}>
         {SpriteFn ? <SpriteFn /> : <FallbackSprite type={type} />}
-        {stage === 2 && animate && <MathOrbit type={type} />}
+        {showOrbit && <MathOrbit type={type} />}
       </g>
     </svg>
   );

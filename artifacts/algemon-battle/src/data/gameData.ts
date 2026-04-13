@@ -6,13 +6,24 @@
 // ── Types ────────────────────────────────────────────────────
 export const ALGEMON_TYPES = [
   "Fire", "Water", "Grass", "Ice", "Flying", "Ground", "Fighting", "Electric",
+  "Legendary",
 ] as const;
 export type AlgemonType = (typeof ALGEMON_TYPES)[number];
+
+/** Eight element types only (Legendary is wild-only / post-catch). */
+export const ELEMENTAL_ALGEMON_TYPES: readonly AlgemonType[] = [
+  "Fire", "Water", "Grass", "Ice", "Flying", "Ground", "Fighting", "Electric",
+];
+
+export const DOUBLE_STAR_SPECIES_ID = "doublestar" as const;
+export const DOUBLE_STAR_SPAWN_RATE = 0.05;
+export const DOUBLE_STAR_BATTLE_QUOTE =
+  "The path to excellence is a marathon, not a sprint.";
 
 export const TOPIC_KEYS = [
   "factorization", "changeOfSubject", "inequalities",
   "indices", "simultaneous", "polynomials", "quadratic", "functions",
-  "coordinates", "ratios",
+  "fractions", "ratios"
 ] as const;
 export type TopicKey = (typeof TOPIC_KEYS)[number];
 
@@ -36,6 +47,7 @@ export const TYPE_COLOR: Record<AlgemonType, string> = {
   Ground:   "#795548",
   Fighting: "#c62828",
   Electric: "#f57f17",
+  Legendary: "#d4af37",
 };
 export const TYPE_EMOJI: Record<AlgemonType, string> = {
   Fire:     "🔥",
@@ -46,6 +58,7 @@ export const TYPE_EMOJI: Record<AlgemonType, string> = {
   Ground:   "🪨",
   Fighting: "👊",
   Electric: "⚡",
+  Legendary: "🌟",
 };
 
 // Player type → topic asked in wild battles
@@ -55,9 +68,10 @@ export const TYPE_TOPIC: Record<AlgemonType, TopicKey> = {
   Grass:    "factorization",
   Ice:      "inequalities",
   Flying:   "polynomials",
-  Ground:   "coordinates",
+  Ground:   "fractions",
   Fighting: "ratios",
   Electric: "simultaneous",
+  Legendary: "functions",
 };
 
 // ── Wild-battle enemy per player type ────────────────────────
@@ -73,6 +87,7 @@ export const WILD_ENEMY: Record<AlgemonType, {
   Ground:   { name: "Aero Specter",  color: "#546e7a", emoji: "🦅", catchType: "Flying",   speciesId: "aeron"    },
   Fighting: { name: "Volt Specter",  color: "#f57f17", emoji: "⚡", catchType: "Electric", speciesId: "volt"     },
   Electric: { name: "Pugn Specter",  color: "#c62828", emoji: "👊", catchType: "Fighting", speciesId: "pugn"     },
+  Legendary: { name: "Double-Star", color: "#d4af37", emoji: "🌟", catchType: "Legendary", speciesId: DOUBLE_STAR_SPECIES_ID },
 };
 
 // ── Battle constants ──────────────────────────────────────────
@@ -80,9 +95,10 @@ export const PLAYER_MAX_HP         = 100;
 export const ENEMY_MAX_HP          = 100;  // all battles — scaling via formula
 export const BASE_DAMAGE           = 34;   // at equal levels: 34% per hit; 2 hits → 32% HP
 export const CATCH_HP_PCT          = 0.30; // legacy soft threshold for log hints
-export const CATCH_MODIFIER        = 0.85; // max catch probability at 0% foe HP
+export const CATCH_MODIFIER        = 0.90; // max catch probability at 0% foe HP
 export const MAX_LEVEL             = 30;
 export const XP_PER_LEVEL          = 100;
+export const XP_GROWTH_RATE        = 1.1;
 export const XP_PER_CORRECT_WILD   = 50;
 export const XP_PER_CORRECT_GYM    = 100;
 export const XP_PER_CORRECT_ELITE  = 150;
@@ -90,9 +106,9 @@ export const HINT_MIN_LEVEL        = 5;
 export const HINT_TOOL_COST        = 50;
 export const ALGEBALL_COST         = 50;
 export const POTION_COST           = 30;
-export const POTION_HEAL           = 20;
+export const POTION_HEAL           = 50;
 export const WILD_WIN_COINS        = 30;
-export const GYM_WIN_COINS         = 100;
+export const GYM_WIN_COINS         = 100; 
 export const ELITE_WIN_COINS       = 200;
 
 // ── Damage formula ────────────────────────────────────────────
@@ -106,17 +122,40 @@ export function calcFoeDmg(playerLv: number, foeLv: number, defenseBonus: number
 
 // ── XP / Level utilities ──────────────────────────────────────
 export function xpToLevel(xp: number): number {
-  return Math.min(MAX_LEVEL, Math.floor(xp / XP_PER_LEVEL) + 1);
+  let lv = 1;
+  while (lv < MAX_LEVEL && xp >= xpForLevelStart(lv + 1)) lv++;
+  return lv;
 }
 export function xpToNextLevel(xp: number): number {
   const lv = xpToLevel(xp);
-  return lv >= MAX_LEVEL ? 0 : lv * XP_PER_LEVEL - xp;
+  return lv >= MAX_LEVEL ? 0 : xpForLevelStart(lv + 1) - xp;
+}
+export function xpRequiredForLevel(level: number): number {
+  if (level < 1) return XP_PER_LEVEL;
+  return Math.round(XP_PER_LEVEL * Math.pow(XP_GROWTH_RATE, level - 1));
+}
+export function xpForLevelStart(level: number): number {
+  if (level <= 1) return 0;
+  let total = 0;
+  for (let lv = 1; lv < level; lv++) total += xpRequiredForLevel(lv);
+  return total;
 }
 export function getEvolutionStage(level: number): 0 | 1 | 2 {
   return level >= 21 ? 2 : level >= 11 ? 1 : 0;
 }
+const SPECIES_ID_BY_TYPE_STAGE: Record<Exclude<AlgemonType, "Legendary">, [string, string, string]> = {
+  Fire: ["ignit", "ignitor", "ignithelio"],
+  Water: ["aquat", "aquasub", "aquasolv"],
+  Grass: ["phyllon", "phyllfact", "phyllroot"],
+  Ice: ["cryocub", "cryoline", "cryobound"],
+  Flying: ["aeron", "aeropoly", "aeroremain"],
+  Ground: ["terron", "terragrid", "terrafract"],
+  Fighting: ["pugn", "pugnlogic", "pugnratio"],
+  Electric: ["volt", "voltgraph", "voltsimul"],
+};
 export function getSpeciesId(baseType: AlgemonType, stage: 0 | 1 | 2): string {
-  return EVOLUTION_DATA[baseType].stages[stage].name.toLowerCase();
+  if (baseType === "Legendary") return DOUBLE_STAR_SPECIES_ID;
+  return SPECIES_ID_BY_TYPE_STAGE[baseType][stage];
 }
 
 // ── Misc ──────────────────────────────────────────────────────
@@ -159,6 +198,22 @@ export const QUESTION_BANK: Record<TopicKey, { mc: MCQuestion[]; sa: SAQuestion[
       { text: "Factorise $2x^2 - 5x - 3$.", options: ["$(2x+1)(x-3)$","$(2x-1)(x+3)$","$(x-3)(2x+3)$","$(x+1)(2x-3)$"], correct: 0, hint: "$ac=-6$. Pairs adding to $-5$: $+1$ and $-6$. Rewrite and group." },
       { text: "Factorise $ax - ay + bx - by$.", options: ["$(a+b)(x-y)$","$(a-b)(x+y)$","$(a+b)(x+y)$","$(ax-y)(b+1)$"], correct: 0, hint: "Group: $a(x-y)+b(x-y)=(a+b)(x-y)$." },
       { text: "Factorise $x^2 + 4x + 4 - y^2$.", options: ["$(x+2-y)(x+2+y)$","$(x+2)^2-y$","$(x+2+y)^2$","$(x+4-y)(x-y)$"], correct: 0, hint: "First 3 terms $=(x+2)^2$. Then Difference of Two Squares: $(x+2)^2-y^2$." },
+    // 15 Additional Factorization Questions
+  { text: "Factorise $x^2 - xy - 2x + 2y$.", options: ["$(x-2)(x-y)$","$(x+2)(x-y)$","$(x-2)(x+y)$","$(x+y)(x-2)$"], correct: 0, hint: "Group terms: $x(x-y) - 2(x-y) = (x-2)(x-y)$." },
+  { text: "Factorise $1 - 16x^2$.", options: ["$(1-4x)(1+4x)$","$(1-4x)^2$","$(4x-1)(4x+1)$","$(1-8x)(1+8x)$"], correct: 0, hint: "Difference of Two Squares: $1^2 - (4x)^2 = (1-4x)(1+4x)$." },
+  { text: "Factorise $2x^2 + 7x + 3$.", options: ["$(2x+1)(x+3)$","$(2x+3)(x+1)$","$(2x-1)(x-3)$","$(x+7)(2x+1)$"], correct: 0, hint: "Cross method: $(2x \times 3) + (1 \times x) = 7x$." },
+  { text: "Factorise $4x^2 - 12x + 9$.", options: ["$(2x-3)^2$","$(2x+3)^2$","$(2x-3)(2x+3)$","$(4x-3)(x-3)$"], correct: 0, hint: "Perfect Square: $(2x)^2 - 2(2x)(3) + 3^2 = (2x-3)^2$." },
+  { text: "Factorise $5x^2 - 20x$.", options: ["$5x(x-4)$","$5(x^2-4x)$","$x(5x-20)$","$5x(x+4)$"], correct: 0, hint: "Take out the Highest Common Factor (HCF) which is $5x$." },
+  { text: "Factorise $x^2 + 2x - 8$.", options: ["$(x+4)(x-2)$","$(x-4)(x+2)$","$(x+8)(x-1)$","$(x+2)(x+4)$"], correct: 0, hint: "Find two numbers that multiply to $-8$ and add to $+2$: $+4$ and $-2$." },
+  { text: "Factorise $a^2 - b^2 + a - b$.", options: ["$(a-b)(a+b+1)$","$(a-b)(a+b-1)$","$(a+b)(a-b+1)$","$(a-b)(a+b)$"], correct: 0, hint: "Factor $a^2-b^2$ first: $(a-b)(a+b) + (a-b)$. Then take out $(a-b)$." },
+  { text: "Factorise $x^2 - 100$.", options: ["$(x-10)(x+10)$","$(x-10)^2$","$(x+10)^2$","$(x-50)(x+2)$"], correct: 0, hint: "Difference of Two Squares: $x^2 - 10^2$." },
+  { text: "Factorise $3x^2 - 10x + 3$.", options: ["$(3x-1)(x-3)$","$(3x-3)(x-1)$","$(3x+1)(x+3)$","$(x-3)(3x+1)$"], correct: 0, hint: "Cross method: $(3x \times -3) + (-1 \times x) = -10x$." },
+  { text: "Factorise $2x^2 - 2x - 12$.", options: ["$2(x-3)(x+2)$","$2(x+3)(x-2)$","$(2x-6)(x+2)$","$2(x-6)(x+1)$"], correct: 0, hint: "Take out factor 2 first: $2(x^2-x-6)$. Then factor the quadratic." },
+  { text: "Factorise $25x^2 + 10x + 1$.", options: ["$(5x+1)^2$","$(5x-1)^2$","$(25x+1)(x+1)$","$(5x+1)(5x-1)$"], correct: 0, hint: "Perfect Square: $(5x)^2 + 2(5x)(1) + 1^2$." },
+  { text: "Factorise $x^2 - y^2 - 4y - 4$.", options: ["$(x-y-2)(x+y+2)$","$(x-y+2)(x+y-2)$","$(x-y-2)^2$","$(x^2)-(y+2)^2$"], correct: 0, hint: "Group last 3 terms: $x^2 - (y^2+4y+4) = x^2 - (y+2)^2$. Then use $a^2-b^2$." },
+  { text: "Factorise $x^2 - 8x + 15$.", options: ["$(x-3)(x-5)$","$(x+3)(x+5)$","$(x-1)(x-15)$","$(x-2)(x-6)$"], correct: 0, hint: "Find two numbers that multiply to $+15$ and add to $-8$: $-3$ and $-5$." },
+  { text: "Factorise $4x^3 - 36x$.", options: ["$4x(x-3)(x+3)$","$4x(x^2-9)$","$4(x^3-9x)$","$x(4x-6)(4x+6)$"], correct: 0, hint: "Take out $4x$ first: $4x(x^2-9)$. Then use Difference of Two Squares." },
+  { text: "Factorise $2ax - 6ay - bx + 3by$.", options: ["$(2a-b)(x-3y)$","$(2a+b)(x-3y)$","$(a-3b)(2x-y)$","$(2a-b)(x+3y)$"], correct: 0, hint: "Group: $2a(x-3y) - b(x-3y)$." }
     ],
     sa: [],
   },
@@ -379,7 +434,7 @@ export const QUESTION_BANK: Record<TopicKey, { mc: MCQuestion[]; sa: SAQuestion[
     ],
     sa: [],
   },
-  coordinates: {
+  fractions: {
     mc: [
       // Based on HKDSE 2012 MII Q.5
       { text: "Simplify $\\frac{1}{x-1} - \\frac{1}{x+1}$.", options: ["$\\frac{2}{x^2-1}$","$\\frac{2x}{x^2-1}$","$\\frac{2}{1-x^2}$","$\\frac{2x}{1-x^2}$"], correct: 0, hint: "Common denominator is $(x-1)(x+1)=x^2-1$. Numerator: $(x+1)-(x-1)=2$." },
@@ -447,44 +502,59 @@ export interface AlgemonLineage {
 }
 
 export const EVOLUTION_DATA: Record<AlgemonType, AlgemonLineage> = {
-  Fire:     { stages: [{ name: "Ignit",       emoji: "🔥", level: 1,  defenseBonus: 0    }, { name: "Ignitor",     emoji: "🌋", level: 11, defenseBonus: 0.10 }, { name: "Ignithelio",  emoji: "☀️", level: 21, defenseBonus: 0.20 }] },
-  Water:    { stages: [{ name: "Aquat",       emoji: "💧", level: 1,  defenseBonus: 0    }, { name: "Aquasub",     emoji: "🌊", level: 11, defenseBonus: 0.10 }, { name: "Aquasolv",    emoji: "🏊", level: 21, defenseBonus: 0.20 }] },
-  Grass:    { stages: [{ name: "Phyllon",     emoji: "🌿", level: 1,  defenseBonus: 0    }, { name: "Phyllfact",   emoji: "🌲", level: 11, defenseBonus: 0.10 }, { name: "Phyllroot",   emoji: "🌳", level: 21, defenseBonus: 0.20 }] },
-  Ice:      { stages: [{ name: "Cryocub",     emoji: "❄️", level: 1,  defenseBonus: 0    }, { name: "Cryoline",    emoji: "🧊", level: 11, defenseBonus: 0.10 }, { name: "Cryobound",   emoji: "⛄", level: 21, defenseBonus: 0.20 }] },
-  Flying:   { stages: [{ name: "Aeron",       emoji: "🦅", level: 1,  defenseBonus: 0    }, { name: "Aeropoly",    emoji: "🦉", level: 11, defenseBonus: 0.10 }, { name: "Aeroremain",  emoji: "🦋", level: 21, defenseBonus: 0.20 }] },
-  Ground:   { stages: [{ name: "Terron",      emoji: "🪨", level: 1,  defenseBonus: 0    }, { name: "Terragrid",   emoji: "🧮", level: 11, defenseBonus: 0.10 }, { name: "Terrafract",  emoji: "➗", level: 21, defenseBonus: 0.20 }] },
-  Fighting: { stages: [{ name: "Pugn",        emoji: "👊", level: 1,  defenseBonus: 0    }, { name: "Pugnlogic",   emoji: "⚔️", level: 11, defenseBonus: 0.10 }, { name: "Pugnratio",   emoji: "🏋️", level: 21, defenseBonus: 0.20 }] },
-  Electric: { stages: [{ name: "Volt",        emoji: "⚡", level: 1,  defenseBonus: 0    }, { name: "Voltgraph",   emoji: "🔌", level: 11, defenseBonus: 0.10 }, { name: "Voltsimul",   emoji: "🌩️", level: 21, defenseBonus: 0.20 }] },
+  Fire:     { stages: [{ name: "Potentic",    emoji: "🔥", level: 1,  defenseBonus: 0    }, { name: "Potenfire",   emoji: "🌋", level: 11, defenseBonus: 0.10 }, { name: "Potentitan",  emoji: "☀️", level: 21, defenseBonus: 0.20 }] },
+  Water:    { stages: [{ name: "Varidrop",    emoji: "💧", level: 1,  defenseBonus: 0    }, { name: "Varistream",  emoji: "🌊", level: 11, defenseBonus: 0.10 }, { name: "Varidelta",   emoji: "🏊", level: 21, defenseBonus: 0.20 }] },
+  Grass:    { stages: [{ name: "Factite",     emoji: "🌿", level: 1,  defenseBonus: 0    }, { name: "Factorm",     emoji: "🌲", level: 11, defenseBonus: 0.10 }, { name: "Factress",    emoji: "🌳", level: 21, defenseBonus: 0.20 }] },
+  Ice:      { stages: [{ name: "Limitless",   emoji: "❄️", level: 1,  defenseBonus: 0    }, { name: "Limifreeze",  emoji: "🧊", level: 11, defenseBonus: 0.10 }, { name: "Limiglacier", emoji: "⛄", level: 21, defenseBonus: 0.20 }] },
+  Flying:   { stages: [{ name: "Polylite",    emoji: "🦅", level: 1,  defenseBonus: 0    }, { name: "Polywing",    emoji: "🦉", level: 11, defenseBonus: 0.10 }, { name: "Polysoar",    emoji: "🦋", level: 21, defenseBonus: 0.20 }] },
+  Ground:   { stages: [{ name: "Radixy",      emoji: "🪨", level: 1,  defenseBonus: 0    }, { name: "Radicore",    emoji: "🧮", level: 11, defenseBonus: 0.10 }, { name: "Radixearth",  emoji: "➗", level: 21, defenseBonus: 0.20 }] },
+  Fighting: { stages: [{ name: "Remanant",    emoji: "👊", level: 1,  defenseBonus: 0    }, { name: "Remandur",    emoji: "⚔️", level: 11, defenseBonus: 0.10 }, { name: "Remanthom",   emoji: "🏋️", level: 21, defenseBonus: 0.20 }] },
+  Electric: { stages: [{ name: "Logispark",   emoji: "⚡", level: 1,  defenseBonus: 0    }, { name: "Logivolt",    emoji: "🔌", level: 11, defenseBonus: 0.10 }, { name: "Logidynamo",  emoji: "🌩️", level: 21, defenseBonus: 0.20 }] },
+  Legendary: {
+    stages: [
+      { name: "Double-Star", emoji: "🌟", level: 1,  defenseBonus: 0.28 },
+      { name: "Double-Star", emoji: "🌟", level: 11, defenseBonus: 0.34 },
+      { name: "Double-Star", emoji: "🌟", level: 21, defenseBonus: 0.42 },
+    ],
+  },
 };
 
 // ══════════════════════════════════════════════════════════════
-// SPECIES LIST — 24 collectibles (8 types × 3 stages)
+// SPECIES LIST — 24 collectibles + 1 hidden legendary
 // ══════════════════════════════════════════════════════════════
 export const SPECIES_LIST: { id: string; name: string; emoji: string; topic: string; type: AlgemonType; stage: 0|1|2 }[] = [
-  { id: "ignit",       name: "Ignit",       emoji: "🔥", topic: "Indices",            type: "Fire",     stage: 0 },
-  { id: "ignitor",     name: "Ignitor",     emoji: "🌋", topic: "Indices",            type: "Fire",     stage: 1 },
-  { id: "ignithelio",  name: "Ignithelio",  emoji: "☀️", topic: "Indices",            type: "Fire",     stage: 2 },
-  { id: "aquat",       name: "Aquat",       emoji: "💧", topic: "Change of Subject",  type: "Water",    stage: 0 },
-  { id: "aquasub",     name: "Aquasub",     emoji: "🌊", topic: "Change of Subject",  type: "Water",    stage: 1 },
-  { id: "aquasolv",    name: "Aquasolv",    emoji: "🏊", topic: "Change of Subject",  type: "Water",    stage: 2 },
-  { id: "phyllon",     name: "Phyllon",     emoji: "🌿", topic: "Factorization",      type: "Grass",    stage: 0 },
-  { id: "phyllfact",   name: "Phyllfact",   emoji: "🌲", topic: "Factorization",      type: "Grass",    stage: 1 },
-  { id: "phyllroot",   name: "Phyllroot",   emoji: "🌳", topic: "Factorization",      type: "Grass",    stage: 2 },
-  { id: "cryocub",     name: "Cryocub",     emoji: "❄️", topic: "Inequalities",       type: "Ice",      stage: 0 },
-  { id: "cryoline",    name: "Cryoline",    emoji: "🧊", topic: "Inequalities",       type: "Ice",      stage: 1 },
-  { id: "cryobound",   name: "Cryobound",   emoji: "⛄", topic: "Inequalities",       type: "Ice",      stage: 2 },
-  { id: "aeron",       name: "Aeron",       emoji: "🦅", topic: "Polynomials",        type: "Flying",   stage: 0 },
-  { id: "aeropoly",    name: "Aeropoly",    emoji: "🦉", topic: "Polynomials",        type: "Flying",   stage: 1 },
-  { id: "aeroremain",  name: "Aeroremain",  emoji: "🦋", topic: "Polynomials",        type: "Flying",   stage: 2 },
-  { id: "terron",      name: "Terron",      emoji: "🪨", topic: "Coordinates",        type: "Ground",   stage: 0 },
-  { id: "terragrid",   name: "Terragrid",   emoji: "🧮", topic: "Algebraic Fractions", type: "Ground",   stage: 1 },
-  { id: "terrafract",  name: "Terrafract",  emoji: "➗", topic: "Algebraic Fractions", type: "Ground",   stage: 2 },
-  { id: "pugn",        name: "Pugn",        emoji: "👊", topic: "Ratios/Percentages", type: "Fighting", stage: 0 },
-  { id: "pugnlogic",   name: "Pugnlogic",   emoji: "⚔️", topic: "Ratios/Percentages", type: "Fighting", stage: 1 },
-  { id: "pugnratio",   name: "Pugnratio",   emoji: "🏋️", topic: "Ratios/Percentages", type: "Fighting", stage: 2 },
-  { id: "volt",        name: "Volt",        emoji: "⚡", topic: "Simultaneous Eqs",  type: "Electric", stage: 0 },
-  { id: "voltgraph",   name: "Voltgraph",   emoji: "🔌", topic: "Simultaneous Eqs",  type: "Electric", stage: 1 },
-  { id: "voltsimul",   name: "Voltsimul",   emoji: "🌩️", topic: "Simultaneous Eqs",  type: "Electric", stage: 2 },
+  { id: "ignit",       name: "Potentic",    emoji: "🔥", topic: "Indices (Power)",                 type: "Fire",     stage: 0 },
+  { id: "ignitor",     name: "Potenfire",   emoji: "🌋", topic: "Indices (Power)",                 type: "Fire",     stage: 1 },
+  { id: "ignithelio",  name: "Potentitan",  emoji: "☀️", topic: "Indices (Power)",                 type: "Fire",     stage: 2 },
+  { id: "aquat",       name: "Varidrop",    emoji: "💧", topic: "Variations (Change)",             type: "Water",    stage: 0 },
+  { id: "aquasub",     name: "Varistream",  emoji: "🌊", topic: "Variations (Change)",             type: "Water",    stage: 1 },
+  { id: "aquasolv",    name: "Varidelta",   emoji: "🏊", topic: "Variations (Change)",             type: "Water",    stage: 2 },
+  { id: "phyllon",     name: "Factite",     emoji: "🌿", topic: "Factorization (Break)",           type: "Grass",    stage: 0 },
+  { id: "phyllfact",   name: "Factorm",     emoji: "🌲", topic: "Factorization (Break)",           type: "Grass",    stage: 1 },
+  { id: "phyllroot",   name: "Factress",    emoji: "🌳", topic: "Factorization (Break)",           type: "Grass",    stage: 2 },
+  { id: "cryocub",     name: "Limitless",   emoji: "❄️", topic: "Inequalities (Boundary)",         type: "Ice",      stage: 0 },
+  { id: "cryoline",    name: "Limifreeze",  emoji: "🧊", topic: "Inequalities (Boundary)",         type: "Ice",      stage: 1 },
+  { id: "cryobound",   name: "Limiglacier", emoji: "⛄", topic: "Inequalities (Boundary)",         type: "Ice",      stage: 2 },
+  { id: "aeron",       name: "Polylite",    emoji: "🦅", topic: "Polynomials (Term Line)",         type: "Flying",   stage: 0 },
+  { id: "aeropoly",    name: "Polywing",    emoji: "🦉", topic: "Polynomials (Term Line)",         type: "Flying",   stage: 1 },
+  { id: "aeroremain",  name: "Polysoar",    emoji: "🦋", topic: "Polynomials (Term Line)",         type: "Flying",   stage: 2 },
+  { id: "terron",      name: "Radixy",      emoji: "🪨", topic: "Quadratics (Root Line)",          type: "Ground",   stage: 0 },
+  { id: "terragrid",   name: "Radicore",    emoji: "🧮", topic: "Quadratics (Root Line)",          type: "Ground",   stage: 1 },
+  { id: "terrafract",  name: "Radixearth",  emoji: "➗", topic: "Quadratics (Root Line)",          type: "Ground",   stage: 2 },
+  { id: "pugn",        name: "Remanant",    emoji: "👊", topic: "Remainder Theorem (Division)",    type: "Fighting", stage: 0 },
+  { id: "pugnlogic",   name: "Remandur",    emoji: "⚔️", topic: "Remainder Theorem (Division)",    type: "Fighting", stage: 1 },
+  { id: "pugnratio",   name: "Remanthom",   emoji: "🏋️", topic: "Remainder Theorem (Division)",    type: "Fighting", stage: 2 },
+  { id: "volt",        name: "Logispark",   emoji: "⚡", topic: "Formulas & Identities (Logic)",    type: "Electric", stage: 0 },
+  { id: "voltgraph",   name: "Logivolt",    emoji: "🔌", topic: "Formulas & Identities (Logic)",    type: "Electric", stage: 1 },
+  { id: "voltsimul",   name: "Logidynamo",  emoji: "🌩️", topic: "Formulas & Identities (Logic)",    type: "Electric", stage: 2 },
+  {
+    id: DOUBLE_STAR_SPECIES_ID,
+    name: "Double-Star",
+    emoji: "🌟",
+    topic: "Legendary · HKDSE",
+    type: "Legendary",
+    stage: 2,
+  },
 ];
 
 // ══════════════════════════════════════════════════════════════
@@ -645,7 +715,7 @@ export const ALGE_DB: Record<TopicKey, TopicData> = {
   },
 
   // ── Algebraic Fractions ───────────────────────────────────────
-  coordinates: {
+  fractions: {
     topicName: "Algebraic Fractions",
     hint: "To add/subtract fractions, find the LCD. To multiply: multiply tops and bottoms. To divide: flip the second fraction and multiply. Always factorise first to cancel common factors.",
     easy: [
@@ -697,14 +767,14 @@ export interface GymDef {
 }
 
 export const GYM_DATA: GymDef[] = [
-  { id: 0, locationName: "Lam Tsuen Valley",          gymName: "Lam Tsuen Gym",  leaderName: "Leader Fern",   topic: "factorization",  badge: "Petal Badge",   enemyName: "Fern's Phyllroot",    enemyColor: "#2d7a27", enemyEmoji: "🌳", catchType: "Grass",    speciesId: "phyllon",   foeLevel: 4,  reward: 100 },
-  { id: 1, locationName: "Tai Po Market",              gymName: "Market Gym",     leaderName: "Leader Marx",   topic: "changeOfSubject",badge: "Subject Badge", enemyName: "Marx's Aquasolv",     enemyColor: "#1565c0", enemyEmoji: "🏊", catchType: "Water",    speciesId: "aquat",     foeLevel: 6,  reward: 100 },
-  { id: 2, locationName: "Tai Mei Tuk",                gymName: "Lakeside Gym",   leaderName: "Leader Ines",   topic: "inequalities",   badge: "Balance Badge", enemyName: "Ines's Cryobound",    enemyColor: "#0097a7", enemyEmoji: "⛄", catchType: "Ice",      speciesId: "cryocub",   foeLevel: 8,  reward: 100 },
-  { id: 3, locationName: "Plover Cove Reservoir",      gymName: "Reservoir Gym",  leaderName: "Leader Xander", topic: "indices",        badge: "Power Badge",   enemyName: "Xander's Ignithelio", enemyColor: "#e05c00", enemyEmoji: "☀️", catchType: "Fire",     speciesId: "ignit",     foeLevel: 10, reward: 100 },
-  { id: 4, locationName: "Tai Po Industrial Estate",   gymName: "Factory Gym",    leaderName: "Leader Simon",  topic: "simultaneous",   badge: "Dual Badge",    enemyName: "Simon's Voltsimul",   enemyColor: "#f57f17", enemyEmoji: "🌩️", catchType: "Electric", speciesId: "volt",      foeLevel: 12, reward: 100 },
-  { id: 5, locationName: "Lo Shue Ling",               gymName: "Highland Gym",   leaderName: "Leader Poly",   topic: "polynomials",    badge: "Degree Badge",  enemyName: "Poly's Aeroremain",   enemyColor: "#546e7a", enemyEmoji: "🦋", catchType: "Flying",   speciesId: "aeron",     foeLevel: 14, reward: 100 },
-  { id: 6, locationName: "Tai Po Mega Mall",           gymName: "Mall Gym",       leaderName: "Leader Quinn",  topic: "quadratic",      badge: "Apex Badge",    enemyName: "Quinn's Pugnratio",   enemyColor: "#c62828", enemyEmoji: "🏋️", catchType: "Fighting", speciesId: "pugn",      foeLevel: 17, reward: 100 },
-  { id: 7, locationName: "Sam Mun Tsai Village",       gymName: "Harbour Gym",    leaderName: "Leader Fiona",  topic: "functions",      badge: "Curve Badge",   enemyName: "Fiona's Terrafract",  enemyColor: "#795548", enemyEmoji: "➗", catchType: "Ground",   speciesId: "terron",    foeLevel: 20, reward: 100 },
+  { id: 0, locationName: "Lam Tsuen Valley",          gymName: "Lam Tsuen Gym",  leaderName: "Leader Fern",   topic: "factorization",  badge: "Petal Badge",   enemyName: "Fern's Factress",     enemyColor: "#2d7a27", enemyEmoji: "🌳", catchType: "Grass",    speciesId: "phyllon",   foeLevel: 4,  reward: 100 },
+  { id: 1, locationName: "Tai Po Market",              gymName: "Market Gym",     leaderName: "Leader Marx",   topic: "changeOfSubject",badge: "Subject Badge", enemyName: "Marx's Varidelta",    enemyColor: "#1565c0", enemyEmoji: "🏊", catchType: "Water",    speciesId: "aquat",     foeLevel: 7,  reward: 100 },
+  { id: 2, locationName: "Tai Mei Tuk",                gymName: "Lakeside Gym",   leaderName: "Leader Ines",   topic: "inequalities",   badge: "Balance Badge", enemyName: "Ines's Limiglacier",  enemyColor: "#0097a7", enemyEmoji: "⛄", catchType: "Ice",      speciesId: "cryocub",   foeLevel: 10,  reward: 100 },
+  { id: 3, locationName: "Plover Cove Reservoir",      gymName: "Reservoir Gym",  leaderName: "Leader Xander", topic: "indices",        badge: "Power Badge",   enemyName: "Xander's Potentitan", enemyColor: "#e05c00", enemyEmoji: "☀️", catchType: "Fire",     speciesId: "ignit",     foeLevel: 13, reward: 100 },
+  { id: 4, locationName: "Tai Po Industrial Estate",   gymName: "Factory Gym",    leaderName: "Leader Simon",  topic: "simultaneous",   badge: "Dual Badge",    enemyName: "Simon's Logidynamo",  enemyColor: "#f57f17", enemyEmoji: "🌩️", catchType: "Electric", speciesId: "volt",      foeLevel: 16, reward: 100 },
+  { id: 5, locationName: "Lo Shue Ling",               gymName: "Highland Gym",   leaderName: "Leader Poly",   topic: "polynomials",    badge: "Degree Badge",  enemyName: "Poly's Polysoar",     enemyColor: "#546e7a", enemyEmoji: "🦋", catchType: "Flying",   speciesId: "aeron",     foeLevel: 19, reward: 100 },
+  { id: 6, locationName: "Tai Po Mega Mall",           gymName: "Mall Gym",       leaderName: "Leader Quinn",  topic: "quadratic",      badge: "Apex Badge",    enemyName: "Quinn's Remanthom",   enemyColor: "#c62828", enemyEmoji: "🏋️", catchType: "Fighting", speciesId: "pugn",      foeLevel: 22, reward: 100 },
+  { id: 7, locationName: "Sam Mun Tsai Village",       gymName: "Harbour Gym",    leaderName: "Leader Fiona",  topic: "functions",      badge: "Curve Badge",   enemyName: "Fiona's Radixearth",  enemyColor: "#795548", enemyEmoji: "➗", catchType: "Ground",   speciesId: "terron",    foeLevel: 25, reward: 100 },
 ];
 
 // ══════════════════════════════════════════════════════════════
@@ -721,8 +791,8 @@ export interface EliteDef {
 export const ELITE_FOUR: EliteDef[] = [
   {
     id: 0, name: "Algeius", title: "Master of Form",
-    enemyName: "Algeius's Ignithelio", enemyColor: "#e05c00", enemyEmoji: "☀️",
-    catchType: "Fire", speciesId: "ignithelio", foeLevel: 22,
+    enemyName: "Algeius's Potentitan", enemyColor: "#e05c00", enemyEmoji: "☀️",
+    catchType: "Fire", speciesId: "ignithelio", foeLevel: 26,
     questions: [
       { text: "Simplify: (x² − 4) / (x² + 4x + 4)\n[Factorise both numerator and denominator]",
         options: ["(x−2)/(x+2)", "(x+2)/(x−2)", "(x−2)²/(x+4)", "1/(x+2)"], correct: 0 },
@@ -734,8 +804,8 @@ export const ELITE_FOUR: EliteDef[] = [
   },
   {
     id: 1, name: "Numbrix", title: "Master of Power",
-    enemyName: "Numbrix's Voltsimul", enemyColor: "#f57f17", enemyEmoji: "🌩️",
-    catchType: "Electric", speciesId: "voltsimul", foeLevel: 24,
+    enemyName: "Numbrix's Logidynamo", enemyColor: "#f57f17", enemyEmoji: "🌩️",
+    catchType: "Electric", speciesId: "voltsimul", foeLevel: 28,
     questions: [
       { text: "Solve the quadratic inequality: x² − 5x + 6 > 0\n(Hint: factorise first)",
         options: ["x<2  or  x>3", "2<x<3", "x<−2  or  x>3", "x≤2  or  x≥3"], correct: 0 },
@@ -747,8 +817,8 @@ export const ELITE_FOUR: EliteDef[] = [
   },
   {
     id: 2, name: "Equalis", title: "Master of Systems",
-    enemyName: "Equalis's Aquasolv", enemyColor: "#1565c0", enemyEmoji: "🏊",
-    catchType: "Water", speciesId: "aquasolv", foeLevel: 26,
+    enemyName: "Equalis's Varidelta", enemyColor: "#1565c0", enemyEmoji: "🏊",
+    catchType: "Water", speciesId: "aquasolv", foeLevel: 30,
     questions: [
       { text: "Solve:\nx + 2y = 7\nx − y = 1\nFind the product xy.",
         options: ["6", "5", "3", "4"], correct: 0 },
@@ -760,8 +830,8 @@ export const ELITE_FOUR: EliteDef[] = [
   },
   {
     id: 3, name: "Champion Mathex", title: "The Champion",
-    enemyName: "Mathex's Phyllroot", enemyColor: "#2d7a27", enemyEmoji: "🌳",
-    catchType: "Grass", speciesId: "phyllroot", foeLevel: 28,
+    enemyName: "Mathex's Factress", enemyColor: "#2d7a27", enemyEmoji: "🌳",
+    catchType: "Grass", speciesId: "phyllroot", foeLevel: 32,
     questions: [
       { text: "The quadratic y = x² − 4x + 3 crosses the x-axis at:\n(Hint: factorise y)",
         options: ["x=1 and x=3", "x=−1 and x=3", "x=1 and x=−3", "x=2 (double root)"], correct: 0 },
@@ -784,119 +854,137 @@ export const STUDY_GUIDE: StudySection[] = [
   {
     topicName: "Factorization",  emoji: "🌿",
     formulas: [
-      "a² − b² = (a+b)(a−b)   [Difference of 2 Squares]",
-      "a² ± 2ab + b² = (a ± b)²   [Perfect Square]",
-      "ax² + bx + c: find two numbers with product=ac and sum=b",
+      "Difference of 2 Squares: a² − b² = (a+b)(a−b)",
+      "Perfect Square: a² ± 2ab + b² = (a ± b)²",
+      "Grouping: ax + ay + bx + by = a(x+y) + b(x+y) = (a+b)(x+y)",
     ],
-    traps: ["Always factor out the GCF first!", "3x² − 3 = 3(x²−1) = 3(x+1)(x−1)"],
+    traps: [
+      "Always extract the GCF first! 2x² − 8 = 2(x²−4) = 2(x+2)(x−2)",
+      "Watch out for sign changes during grouping: ax − ay − bx + by = a(x−y) − b(x−y)",
+    ],
   },
   {
     topicName: "Change of Subject",  emoji: "💧",
     formulas: [
-      "Step 1: Isolate all terms containing the target variable",
-      "Step 2: Factor out the target variable if it appears more than once",
-      "Step 3: Divide both sides to isolate the variable",
+      "Step 1: Eliminate fractions (cross-multiply) or roots (square both sides)",
+      "Step 2: Expand all brackets to set the target variables 'free'",
+      "Step 3: Collect ALL terms containing the subject on one side, and the rest on the other",
+      "Step 4: Factorize out the subject as a common factor",
+      "Step 5: Divide to isolate the subject completely",
     ],
     traps: [
-      "y = (ax+b)/(cx+d) → cross-multiply: y(cx+d)=ax+b, then collect x terms",
-      "y = √(x+a) → square both sides: y²=x+a → x=y²−a",
+      "The Factorization Miss: If making x the subject of ax + b = cx + d, you MUST reach x(a−c) = d−b. You cannot leave x on both sides!",
+      "The 'Square-All' Trap: When squaring y = √(x) + a to remove the root, you must isolate the root first: y − a = √(x) → (y−a)² = x. Do NOT just square individual terms!",
+      "The Negative Subject: If you get −x = y − 3, the final answer must be x = 3 − y. DSE requires the subject to be positive.",
+      "Reciprocal Error: If 1/x = 1/a + 1/b, x is NOT a + b. You must find a common denominator: 1/x = (a+b)/ab, so x = ab/(a+b).",
     ],
   },
   {
     topicName: "Inequalities",  emoji: "❄️",
     formulas: [
-      "Treat like an equation BUT flip < / > when × or ÷ by a NEGATIVE",
-      "For −3x < 9: divide by −3 → x > −3   (sign flips!)",
-      "Compound: −4 ≤ 2x+2 ≤ 10 → subtract 2 → divide by 2",
+      "Linear: Flip the sign (< to >) when multiplying/dividing by a NEGATIVE",
+      "Compound 'AND': Solution must satisfy BOTH (the overlapping part)",
+      "Compound 'OR': Solution satisfies EITHER (the union of both parts)",
     ],
     traps: [
-      "−2x < 6  →  x > −3   (NOT x < −3)",
-      "Combined inequality: apply same operation to ALL THREE parts",
+      "DSE wording: 'At least' means ≥, 'At most' means ≤, 'Exceeds' means >",
+      "When solving −4x < 12, the result is x > −3. Forgetting the flip is a Level 2 mistake!",
     ],
   },
   {
     topicName: "Indices (Laws of Indices)",  emoji: "🔥",
     formulas: [
-      "aᵐ × aⁿ = aᵐ⁺ⁿ       aᵐ ÷ aⁿ = aᵐ⁻ⁿ",
-      "(aᵐ)ⁿ = aᵐⁿ          (ab)ⁿ = aⁿbⁿ",
-      "a⁰ = 1                a⁻ⁿ = 1/aⁿ",
-      "a^(m/n) = (ⁿ√a)^m    — find the ROOT first, then power",
+      "Product & Quotient: aᵐ × aⁿ = aᵐ⁺ⁿ  |  aᵐ ÷ aⁿ = aᵐ⁻ⁿ",
+      "Power of Power: (aᵐ)ⁿ = aᵐⁿ  |  (ab)ⁿ = aⁿbⁿ",
+      "Negative & Zero: a⁻ⁿ = 1/aⁿ  |  a⁰ = 1  (where a ≠ 0)",
+      "Rational Index: a^(m/n) = ⁿ√(aᵐ) or (ⁿ√a)ᵐ",
     ],
     traps: [
-      "27^(2/3): cube-root first → 3, then square → 9",
-      "4^(3/2): √4=2, then 2³=8",
+      "Positive Indices Only: DSE answers must not have negative powers. Flip them: x⁻³ becomes 1/x³.",
+      "The Bracket Trap: (−3)² = 9, but −3² = −9. If the base is negative, keep the bracket!",
+      "Sum Trap: (a + b)ⁿ is NOT aⁿ + bⁿ. Indices do NOT distribute over addition.",
+      "MC Strategy: To compare 2³⁰⁰ and 3²⁰⁰, rewrite as (2³)¹⁰⁰ = 8¹⁰⁰ and (3²)¹⁰⁰ = 9¹⁰⁰. Clearly 9¹⁰⁰ > 8¹⁰⁰.",
     ],
   },
   {
     topicName: "Simultaneous Equations",  emoji: "⚡",
     formulas: [
-      "Substitution: isolate one variable, substitute into other equation",
-      "Elimination: multiply to match a coefficient, then add/subtract",
+      "Substitution: Best when one coefficient is 1 or −1",
+      "Elimination: Multiply equations to align coefficients of x or y",
+      "DSE special: One linear and one quadratic (solve by substitution)",
     ],
     traps: [
-      "After finding x, always substitute back to find y",
-      "Check: substitute BOTH values into BOTH original equations",
+      "Check your answers by plugging both x and y back into BOTH original equations",
+      "For linear + quadratic, you may get two pairs of answers. Don't discard one unless specified",
     ],
   },
   {
     topicName: "Polynomials",  emoji: "🦅",
     formulas: [
-      "Remainder Theorem: f(a) = remainder when f(x) ÷ (x−a)",
-      "Factor Theorem: (x−a) is a factor  ⟺  f(a) = 0",
+      "Identity: f(x) ≡ Q(x) · D(x) + R  (Dividend = Quotient × Divisor + Remainder)",
+      "Remainder Theorem: When f(x) is divided by (ax − b), Remainder = f(b/a)",
+      "Factor Theorem: (ax − b) is a factor ⟺ f(b/a) = 0",
+      "Degree Rule: The degree of the Remainder is always less than the degree of the Divisor",
     ],
     traps: [
-      "Dividing by (x+a) means substitute x = −a (not +a)!",
-      "Always expand carefully and watch signs",
+      "Missing Terms: If f(x) = x³ + x − 1, the x² coefficient is 0. Don't skip it in long division!",
+      "Coefficient Trap: Dividing by (2x − 1) means substituting x = 1/2, NOT x = 1 or −1.",
+      "Remainder vs. Factor: 'f(x) is divisible by g(x)' or 'g(x) is a factor' BOTH mean Remainder = 0.",
+      "The 'f(k)=R' Trap: If the remainder is 5 when divided by (x−2), the equation is f(2) = 5, not f(5) = 2.",
     ],
   },
   {
     topicName: "Quadratic Equations",  emoji: "🔺",
     formulas: [
-      "Δ = b² − 4ac     (discriminant)",
-      "Δ > 0: two distinct real roots  |  Δ = 0: one repeated  |  Δ < 0: no real roots",
-      "x = (−b ± √Δ) / 2a",
+      "Sum of roots: α + β = −b/a",
+      "Product of roots: αβ = c/a",
+      "Discriminant (Δ = b² − 4ac): Δ>0 (2 roots), Δ=0 (1 root), Δ<0 (0 roots)",
     ],
     traps: [
-      "3x²−4x+2: a=3, b=−4, c=2 → Δ=16−24=−8 (no real roots!)",
-      "Equal roots → set Δ=0 and solve for the unknown constant",
+      "If the question says 'real roots,' you must use Δ ≥ 0 (includes the equal case)",
+      "Common MC target: α² + β² = (α+β)² − 2αβ",
     ],
   },
   {
     topicName: "Functions & Graphs",  emoji: "🌊",
     formulas: [
-      "Inverse f⁻¹: replace f(x) with y, swap x and y, solve for y",
-      "Composite fg(x): apply g first, then f to that result",
-      "Vertex form: y = a(x−h)² + k  →  vertex at (h, k)",
+      "Vertex Form: y = a(x−h)² + k | Vertex = (h, k)",
+      "Transformations: f(x)+k (up), f(x−k) (right), −f(x) (reflect in x-axis)",
     ],
     traps: [
-      "fg(3) = f(g(3)) — apply g FIRST!   gf(3) = g(f(3)) — apply f FIRST!",
-      "y = (x−3)²+5: vertex is (3,5) not (−3,5)",
+      "f(x+3) moves the graph LEFT by 3 units. This is a classic DSE trap!",
+      "If a graph does not touch the x-axis, the discriminant of its equation is Δ < 0",
     ],
   },
   {
     topicName: "Algebraic Fractions",  emoji: "➗",
     formulas: [
-      "Simplify: factorise first, then cancel common factors",
-      "Add/Subtract: find the LCD, convert, then combine numerators",
-      "Multiply: multiply tops × tops, bottoms × bottoms",
-      "Divide: flip the divisor, then multiply",
+      "Simplification: Factorize numerator and denominator COMPLETELY, then cancel common factors",
+      "Addition/Subtraction: Find the Lowest Common Multiple (LCM) of denominators first",
+      "Multiplication: (a/b) × (c/d) = (ac)/(bd)",
+      "Division: (a/b) ÷ (c/d) = (a/b) × (d/c) [Multiply by the Reciprocal]",
     ],
     traps: [
-      "Cannot cancel terms that are ADDED — only cancel FACTORS: (x+2)/(x+2) ✓ but (x+2)/x ✗",
-      "When dividing by a fraction, flip it first: a/b ÷ c/d = (a/b)×(d/c)",
+      "The Invisible Bracket: In expressions like −(x−3)/2, the sign applies to the whole numerator, becoming (−x+3)/2.",
+      "The 'Illegal' Cancel: You can only cancel FACTORS. (x+y)/x cannot be simplified. It must be a product to cancel!",
+      "Factor Swap: (a−b) = −(b−a). Use this to unify denominators like (x−1) and (1−x).",
+      "Quadratic Denominators: Always factorize (x²−4) into (x+2)(x−2) before finding the LCM to avoid massive polynomials.",
     ],
   },
   {
     topicName: "Ratios & Percentages",  emoji: "👊",
     formulas: [
-      "% change = (change / original) × 100",
-      "New value after r% increase = original × (1 + r/100)",
-      "Part in ratio a:b = (a / (a+b)) × total",
-      "Simple Interest = P × r × t / 100",
+      "Percentage Change: (New − Old) / Old × 100%",
+      "Compound Interest: A = P(1 + r/k)^(kt)  [k = times per year]",
+      "Profit/Loss: Selling Price = Cost Price × (1 ± Profit/Loss %)",
+      "Discount: Selling Price = Marked Price × (1 − Discount %)",
+      "Similar Figures: (L₁/L₂)² = A₁/A₂  and  (L₁/L₂)³ = V₁/V₂",
     ],
     traps: [
-      "$250 → $300 increase = 50/250 × 100 = 20% (NOT 50/300!)",
-      "After 25% increase gives $875: original = 875 / 1.25 = $700",
+      "The 'Reverse' Trap: If a 20% profit gives $120, Cost Price = $120 / 1.2 = $100, NOT 120 × 0.8!",
+      "Successive Change: A 10% increase followed by 10% decrease is a 1% loss (1.1 × 0.9 = 0.99).",
+      "Interest Period: 'Quarterly' means k=4 and n=4t. If interest is 8% p.a. quarterly, use 2% per period.",
+      "Area Ratio Mistake: If lengths are tripled, the area becomes 9x larger (3²), not 3x!",
     ],
   },
 ];
