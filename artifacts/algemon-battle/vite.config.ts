@@ -1,11 +1,19 @@
 import { defineConfig } from "vite";
+
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const rawPort = process.env.PORT;
+const PORT = Number(process.env.PORT ?? 3000)
 
+export default defineConfig({
+  server: {
+    port: PORT,
+  },
+  // ...rest of config
+})
 if (!rawPort) {
   throw new Error(
     "PORT environment variable is required but was not provided.",
