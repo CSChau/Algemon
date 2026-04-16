@@ -14,6 +14,7 @@ interface AlgemonSVGProps {
   isEnemy?:   boolean;
   fainted?:   boolean;
   animate?:   boolean;
+  shiny?:     boolean;
 }
 
 // ── Math symbol aura orbit (Stage 2) ─────────────────────────
@@ -572,7 +573,7 @@ function Terragrid() {
   );
 }
 
-function Terracoord() {
+function Terrafract() {
   return (
     <g>
       {/* Heavy stone body */}
@@ -854,7 +855,7 @@ const SPRITES: Record<string, () => ReactElement> = {
   phyllon: Phyllon, phyllfact: Phyllfact, phyllroot: Phyllroot,
   cryocub: Cryocub, cryoline: Cryoline, cryobound: Cryobound,
   aeron: Aeron, aeropoly: Aeropoly, aeroremain: Aeroremain,
-  terron: Terron, terragrid: Terragrid, terracoord: Terracoord,
+  terron: Terron, terragrid: Terragrid, terrafract: Terrafract,
   pugn: Pugn, pugnlogic: Pugnlogic, pugnratio: Pugnratio,
   volt: Volt, voltgraph: Voltgraph, voltsimul: Voltsimul,
 };
@@ -880,7 +881,7 @@ function FallbackSprite({ type }: { type: AlgemonType }) {
 }
 
 // ── Main export ───────────────────────────────────────────────
-export function AlgemonSVG({ type, stage, speciesId: speciesOverride, size = 80, isEnemy = false, fainted = false, animate = true }: AlgemonSVGProps) {
+export function AlgemonSVG({ type, stage, speciesId: speciesOverride, size = 80, isEnemy = false, fainted = false, animate = true, shiny = false }: AlgemonSVGProps) {
   const fallbackKey = `${type.toLowerCase()}${stage === 0 ? "" : stage === 1 ? "sub" : "final"}`;
   const STAGE_IDS: Record<AlgemonType, [string, string, string]> = {
     Fire:     ["ignit",    "ignitor",   "ignithelio"],
@@ -888,7 +889,7 @@ export function AlgemonSVG({ type, stage, speciesId: speciesOverride, size = 80,
     Grass:    ["phyllon",  "phyllfact", "phyllroot"],
     Ice:      ["cryocub",  "cryoline",  "cryobound"],
     Flying:   ["aeron",    "aeropoly",  "aeroremain"],
-    Ground:   ["terron",   "terragrid", "terracoord"],
+    Ground:   ["terron",   "terragrid", "terrafract"],
     Fighting: ["pugn",     "pugnlogic", "pugnratio"],
     Electric: ["volt",     "voltgraph", "voltsimul"],
     Legendary: [DOUBLE_STAR_SPECIES_ID, DOUBLE_STAR_SPECIES_ID, DOUBLE_STAR_SPECIES_ID],
@@ -901,8 +902,12 @@ export function AlgemonSVG({ type, stage, speciesId: speciesOverride, size = 80,
   const SpriteFn = SPRITES[sid];
 
   const bobClass  = !animate ? "" : (isEnemy ? "sprite-bob-enemy" : "sprite-bob");
-  const transform = isEnemy ? "scale(-1,1) translate(-80,0)" : undefined;
+  const transform = isEnemy && sid !== DOUBLE_STAR_SPECIES_ID ? "scale(-1,1) translate(-80,0)" : undefined;
   const showOrbit = stage === 2 && animate && sid !== DOUBLE_STAR_SPECIES_ID;
+
+  const shinyFilter = shiny ? { filter: "hue-rotate(145deg) saturate(1.35) brightness(1.15)" } as const : undefined;
+  /** Mirror sparkles in viewBox when the sprite is enemy-flipped (sparkles must not share `scale(-1,1) translate(-80,0)` or they leave the viewBox). */
+  const sparkleMirror = isEnemy && sid !== DOUBLE_STAR_SPECIES_ID ? "matrix(-1 0 0 1 80 0)" : undefined;
 
   return (
     <svg
@@ -919,9 +924,18 @@ export function AlgemonSVG({ type, stage, speciesId: speciesOverride, size = 80,
         flexShrink:      0,
       }}
     >
-      <g transform={transform}>
-        {SpriteFn ? <SpriteFn /> : <FallbackSprite type={type} />}
-        {showOrbit && <MathOrbit type={type} />}
+      <g style={shinyFilter}>
+        <g transform={transform}>
+          {SpriteFn ? <SpriteFn /> : <FallbackSprite type={type} />}
+          {showOrbit && <MathOrbit type={type} />}
+        </g>
+        {shiny && (
+          <g transform={sparkleMirror}>
+            <text x="10" y="12" fontSize="8" fill="#fff59d">✦</text>
+            <text x="63" y="14" fontSize="7" fill="#fff9c4">✧</text>
+            <text x="68" y="70" fontSize="8" fill="#fff59d">✦</text>
+          </g>
+        )}
       </g>
     </svg>
   );
