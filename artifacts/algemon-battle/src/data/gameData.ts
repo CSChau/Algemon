@@ -253,7 +253,7 @@ export const QUESTION_BANK: Record<TopicKey, { mc: MCQuestion[]; sa: SAQuestion[
   { text: "Factorise $4 - x^2 + 6x - 9$.", options: ["$(2-x+3)(2+x-3)$","$(x-3)^2-4$","$4-(x-3)^2$","$(1+x)(5-x)$"], correct: 3, hint: "$4 - (x^2-6x+9) = 2^2 - (x-3)^2$. So the fully factorised form is $(1+x)(5-x)$." },
   { text: "Factorise $a^2 - 4ab + 4b^2 - c^2$.", options: ["$(a-2b-c)(a-2b+c)$","$(a-2b-c)^2$","$(a+2b-c)(a+2b+c)$","$(a-2b-c^2)$"], correct: 0, hint: "$(a-2b)^2 - c^2$." },
   { text: "Factorise $x^3 - 4x^2 + 4x$.", options: ["$x(x-2)^2$","$x(x^2-4x+4)$","$x(x+2)^2$","$x^2(x-4)+4x$"], correct: 0, hint: "Factor out $x$ first." },
-  { text: "Factorise $25 - (x-1)^2$.", options: ["$(6-x)(4+x)$","$(5-x+1)(5+x-1)$","$(4-x)(6+x)$","$(25-x+1)(25+x-1)$"], correct: 1, hint: "$(5-(x-1))(5+(x-1)) = (6-x)(4+x)$." },
+  { text: "Factorise $25 - (x-1)^2$.", options: ["$(6-x)(4+x)$","$(5-x+1)(5+x-1)$","$(4-x)(6+x)$","$(25-x+1)(25+x-1)$"], correct: 0, hint: "$(5-(x-1))(5+(x-1)) = (6-x)(4+x)$." },
   { text: "Factorise $2x^2 - 12x + 18$.", options: ["$2(x-3)^2$","$2(x-9)$","$2(x+3)^2$","$(2x-6)(x-3)$"], correct: 0, hint: "$2(x^2-6x+9)$." },
   { text: "Factorise $x^2 - y^2 + 3x - 3y$.", options: ["$(x-y)(x+y+3)$","$(x-y)(x+y-3)$","$(x+y)(x-y+3)$","$(x-y)^2+3$"], correct: 0, hint: "$(x-y)(x+y) + 3(x-y)$." }
 ],
